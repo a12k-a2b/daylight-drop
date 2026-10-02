@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://daylight.computer/schemas/text-v1.json",
+  "title": "TextPayload",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["prompt", "clipboard"]
+    },
+    "text": {
+      "type": "string"
+    },
+    "origin": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "integer"
+    }
+  },
+  "required": ["id", "type", "text", "origin", "timestamp"]
+}

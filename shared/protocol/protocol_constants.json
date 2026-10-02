@@ -1,0 +1,74 @@
+{
+  "protocolVersion": "1.0",
+  "ports": {
+    "macOS": 8765,
+    "android": 8766,
+    "adbHost": 5037
+  },
+  "serviceDiscovery": {
+    "serviceType": "_daylightdrop._tcp.",
+    "serviceTypeNoDot": "_daylightdrop._tcp",
+    "domain": "local.",
+    "txtKeys": {
+      "deviceId": "devId",
+      "deviceName": "devName",
+      "deviceModel": "devModel",
+      "role": "role",
+      "port": "port",
+      "protocolVersion": "protoVer",
+      "ipHint": "ip",
+      "webSocketPath": "wsPath",
+      "dropPath": "dropPath"
+    },
+    "roles": {
+      "mac": "mac_desktop",
+      "android": "dc1_tablet"
+    }
+  },
+  "endpoints": {
+    "health": "/api/health",
+    "drop": "/api/drop",
+    "text": "/api/text",
+    "webSocket": "/api/ws"
+  },
+  "headers": {
+    "dropId": "X-Daylight-Drop-Id",
+    "dropType": "X-Daylight-Drop-Type",
+    "dropFilename": "X-Daylight-Drop-Filename",
+    "dropSha256": "X-Daylight-Drop-Sha256",
+    "dropOrigin": "X-Daylight-Drop-Origin"
+  },
+  "payloadTypes": {
+    "screenshot": "screenshot",
+    "image": "image",
+    "document": "document",
+    "file": "file"
+  },
+  "textTypes": {
+    "prompt": "prompt",
+    "clipboard": "clipboard"
+  },
+  "loopSuppression": {
+    "originTag": "com.daylight.drop.origin",
+    "transferIdTag": "com.daylight.drop.transferId",
+    "lruCapacity": 256,
+    "ttlSeconds": 60
+  },
+  "staging": {
+    "tempPrefix": ".tmp_",
+    "partSuffix": ".part",
+    "macIncoming": "~/DaylightDrop/incoming",
+    "macOutgoing": "~/DaylightDrop/outgoing",
+    "androidIncoming": "/sdcard/Download/DaylightDrop"
+  },
+  "adb": {
+    "reverseTunnel": {
+      "remote": "tcp:8765",
+      "local": "tcp:8765"
+    },
+    "forwardTunnel": {
+      "local": "tcp:8766",
+      "remote": "tcp:8766"
+    }
+  }
+}

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <!--
+      Direct Share Target for Daylight Drop on DC1 (Android 13 / API 33).
+      Matches dynamic shortcuts published with category `com.daylight.drop.category.DIRECT_SHARE_TARGET`
+      and Person targets to surface "Mac Menu Bar Tray" at the top of the Android Chooser sheet.
+    -->
+    <share-target android:targetClass="com.daylight.drop.ShareActivity">
+        <data android:mimeType="*/*" />
+        <category android:name="com.daylight.drop.category.DIRECT_SHARE_TARGET" />
+    </share-target>
+</shortcuts>

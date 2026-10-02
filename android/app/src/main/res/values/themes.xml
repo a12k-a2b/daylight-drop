@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Theme.Daylight.TranslucentTrampoline:
+      Ephemeral transparent window for BeamTrampolineActivity and ShareActivity.
+      Acquires window focus (<25ms) without screen dimming, flicker, or window animations.
+    -->
+    <style name="Theme.Daylight.TranslucentTrampoline" parent="android:Theme.Translucent.NoTitleBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowAnimationStyle">@style/Animation.Daylight.ZeroTransition</item>
+        <item name="android:windowDisablePreview">true</item>
+    </style>
+
+    <!-- Zero transition animation for instantaneous window dismissal on LivePaper -->
+    <style name="Animation.Daylight.ZeroTransition" parent="">
+        <item name="android:activityOpenEnterAnimation">@null</item>
+        <item name="android:activityOpenExitAnimation">@null</item>
+        <item name="android:activityCloseEnterAnimation">@null</item>
+        <item name="android:activityCloseExitAnimation">@null</item>
+    </style>
+
+    <!-- Base Application Theme conforming to Sol:OS Design Tokens -->
+    <style name="Theme.Daylight.Drop" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <item name="android:windowBackground">@color/os_0</item>
+        <item name="android:textColorPrimary">@color/os_900</item>
+        <item name="android:textColorSecondary">@color/os_400</item>
+        <item name="android:colorAccent">@color/os_1000</item>
+        <item name="colorPrimary">@color/os_900</item>
+        <item name="colorOnPrimary">@color/os_0</item>
+        <item name="colorSurface">@color/os_50</item>
+        <item name="colorOnSurface">@color/os_900</item>
+    </style>
+
+    <style name="Theme.DaylightDrop" parent="Theme.Daylight.Drop" />
+</resources>

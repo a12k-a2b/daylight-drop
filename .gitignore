@@ -1,0 +1,42 @@
+# macOS / SwiftPM
+.DS_Store
+*/.DS_Store
+.build/
+*/.build/
+Packages/
+*.xcodeproj/
+*.xcworkspace/
+.swiftpm/
+
+# Android / Gradle
+.gradle/
+*/.gradle/
+.gradle_home/
+*/.gradle_home/
+.kotlin/
+*/.kotlin/
+build/
+*/build/
+local.properties
+*/local.properties
+*.apk
+*.aab
+*.dex
+*.class
+
+# Python
+__pycache__/
+*/__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+*.log
+
+# IDE & Editor
+.idea/
+.vscode/
+*.swp
+*~
+
+# Antigravity agent execution traces
+.agents/

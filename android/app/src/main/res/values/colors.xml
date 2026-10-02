@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Canonical Daylight Sol:OS 8-Bit Grayscale Design Tokens
+      Calibrated for Sharp NT36523N LivePaper Reflective LCD (1200x1600 @ 270dpi)
+      Zero EPD / Zero Ghosting / 60-120Hz Fluid Framerate
+    -->
+    <color name="os_0">#FFFFFF</color>       <!-- Base paper canvas (255) -->
+    <color name="os_50">#F7F7F7</color>      <!-- Raised cards / surface panels (247) -->
+    <color name="os_100">#DCD5C9</color>     <!-- Hairline borders / subtle dividers (215) -->
+    <color name="os_100_alpha">#14000000</color> <!-- 8% black hairline (rgba(0,0,0,0.08)) -->
+    <color name="os_150">#F5F5F5</color>     <!-- Recessed canvas / search input (245) -->
+    <color name="os_200">#CCCCCC</color>     <!-- Disabled / inactive controls (204) -->
+    <color name="os_300">#858585</color>     <!-- Tertiary text / placeholders (133) -->
+    <color name="os_400">#535353</color>     <!-- Secondary text ink / icons (83) -->
+    <color name="os_800">#343434</color>     <!-- Dark fields / pressed states (52) -->
+    <color name="os_900">#1A1A1A</color>     <!-- Primary text ink / headlines (26) -->
+    <color name="os_1000">#000000</color>    <!-- Max black ink / focus accents (0) -->
+
+    <!-- Calibrated Brand Grays (Monochromatic Levels) -->
+    <color name="os_yellow">#CECECE</color>  <!-- Morning Yellow equivalent (206) -->
+    <color name="os_amber">#9D9D9E</color>   <!-- Hardware Amber equivalent (157) -->
+    <color name="os_orange">#6C6C6D</color>  <!-- Sunset Orange equivalent (108) -->
+</resources>

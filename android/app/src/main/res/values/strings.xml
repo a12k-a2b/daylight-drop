@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Daylight Drop</string>
+    <string name="tile_drop_label">Daylight Drop</string>
+    <string name="tile_drop_subtitle_connected">Connected</string>
+    <string name="tile_drop_subtitle_offline">Offline</string>
+    <string name="tile_drop_content_description">Quick Settings Tile for Daylight Drop</string>
+    
+    <string name="direct_share_short_label">Mac Menu Bar</string>
+    <string name="direct_share_long_label">Send to %1$s</string>
+    
+    <string name="toast_clipboard_empty">Clipboard is empty</string>
+    <string name="toast_clipboard_loop_suppressed">Clipboard from Mac (suppressed)</string>
+    <string name="toast_clipboard_duplicate_suppressed">Duplicate clipboard item (suppressed)</string>
+    <string name="toast_clipboard_unsupported">Unsupported clipboard format</string>
+    <string name="toast_beaming_clipboard">Beaming clipboard to Mac…</string>
+    <string name="toast_beaming_file">Beaming file to Mac…</string>
+    
+    <string name="toast_share_empty">No shareable content found</string>
+    <string name="toast_sharing_to_mac">Sending to Mac…</string>
+    <string name="toast_sharing_file_to_mac">Sending file to Mac…</string>
+    <string name="toast_sharing_files_to_mac">Sending %1$d files to Mac…</string>
+
+    <string name="action_beam_clipboard">Beam Clipboard</string>
+    <string name="action_open_downloads">Open Storage</string>
+    <string name="status_connected_usb">Connected via USB (Port 8765/8766)</string>
+    <string name="status_connected_wifi">Connected via Wi-Fi</string>
+    <string name="status_offline">Ready for drops (Offline)</string>
+</resources>

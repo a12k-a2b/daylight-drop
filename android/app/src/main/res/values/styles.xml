@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Sol:OS UI Card and Surface Styles -->
+    <style name="SolOS.Card" parent="Widget.MaterialComponents.CardView">
+        <item name="cardBackgroundColor">@color/os_50</item>
+        <item name="cardCornerRadius">12dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeColor">@color/os_100</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <style name="SolOS.Button.Primary" parent="Widget.MaterialComponents.Button">
+        <item name="backgroundTint">@color/os_900</item>
+        <item name="android:textColor">@color/os_0</item>
+        <item name="cornerRadius">8dp</item>
+    </style>
+
+    <style name="SolOS.Button.Secondary" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="strokeColor">@color/os_100</item>
+        <item name="strokeWidth">1dp</item>
+        <item name="android:textColor">@color/os_900</item>
+        <item name="cornerRadius">8dp</item>
+    </style>
+</resources>

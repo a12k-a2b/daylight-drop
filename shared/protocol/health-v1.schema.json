@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://daylight.computer/schemas/health-v1.json",
+  "title": "HealthResponse",
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "string",
+      "const": "ok"
+    },
+    "device_id": {
+      "type": "string"
+    },
+    "device_type": {
+      "type": "string",
+      "enum": ["macos", "daylight"]
+    },
+    "version": {
+      "type": "string"
+    }
+  },
+  "required": ["status", "device_id", "device_type", "version"]
+}

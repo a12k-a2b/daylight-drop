@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://daylight.computer/schemas/drop-v1.json",
+  "title": "DropMetadata",
+  "type": "object",
+  "properties": {
+    "transferId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "timestamp": {
+      "type": "integer",
+      "description": "Epoch timestamp in milliseconds"
+    },
+    "originDeviceId": {
+      "type": "string"
+    },
+    "originDeviceName": {
+      "type": "string"
+    },
+    "targetDeviceId": {
+      "type": "string"
+    },
+    "payloadType": {
+      "type": "string",
+      "enum": ["screenshot", "image", "document", "file"]
+    },
+    "filename": {
+      "type": "string"
+    },
+    "mimeType": {
+      "type": "string"
+    },
+    "sizeBytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-fA-F0-9]{64}$"
+    },
+    "attributes": {
+      "type": "object",
+      "properties": {
+        "isAutosync": { "type": "boolean" },
+        "sourcePackage": { "type": ["string", "null"] }
+      }
+    }
+  },
+  "required": [
+    "transferId",
+    "timestamp",
+    "originDeviceId",
+    "payloadType",
+    "filename",
+    "sha256"
+  ]
+}
