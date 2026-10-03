@@ -117,6 +117,10 @@ public final class TransportManager: @unchecked Sendable {
             self?.probeUsbTunnelHealth(serial: serial)
         }
         
+        adbTracker.onTunnelEstablished = { [weak self] serial in
+            self?.probeUsbTunnelHealth(serial: serial)
+        }
+        
         adbTracker.onDeviceDetached = { [weak self] serial in
             guard let self = self else { return }
             self.lock.lock()
@@ -140,7 +144,6 @@ public final class TransportManager: @unchecked Sendable {
         lock.unlock()
         
         try server.start()
-        try advertiser.start()
         browser.startBrowsing()
         adbTracker.startTracking()
     }
@@ -153,7 +156,6 @@ public final class TransportManager: @unchecked Sendable {
         lock.unlock()
         
         server.stop()
-        advertiser.stop()
         browser.stop()
         adbTracker.stopTracking()
         onChannelChanged?(nil)

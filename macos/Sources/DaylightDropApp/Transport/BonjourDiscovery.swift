@@ -228,7 +228,17 @@ public final class DaylightDropBrowser: @unchecked Sendable {
             if let r = record.dictionary["role"] { role = r }
             if let pStr = record.dictionary["port"], let p = UInt16(pStr) { port = p }
             if let pv = record.dictionary["protoVer"] { protoVer = pv }
-            if let ipHint = record.dictionary["ip"] { ip = ipHint }
+            if let ipHint = record.dictionary["ip"] {
+                if ipHint != "127.0.0.1" && !ipHint.hasPrefix("127.") {
+                    ip = ipHint
+                }
+            }
+        }
+        
+        if ip.isEmpty {
+            if let resolved = DaylightDropBrowser.resolveServiceHostname(name: name) {
+                ip = resolved
+            }
         }
         
         let peer = DiscoveredPeer(
@@ -247,6 +257,40 @@ public final class DaylightDropBrowser: @unchecked Sendable {
         lock.unlock()
         
         onPeerDiscovered?(peer)
+    }
+    
+    public static func resolveServiceHostname(name: String) -> String? {
+        let hostName = "\(name).local"
+        var hints = addrinfo(
+            ai_flags: AI_ADDRCONFIG,
+            ai_family: AF_INET,
+            ai_socktype: SOCK_STREAM,
+            ai_protocol: 0,
+            ai_addrlen: 0,
+            ai_canonname: nil,
+            ai_addr: nil,
+            ai_next: nil
+        )
+        var res: UnsafeMutablePointer<addrinfo>?
+        if getaddrinfo(hostName, nil, &hints, &res) == 0, let first = res {
+            defer { freeaddrinfo(res) }
+            var ptr: UnsafeMutablePointer<addrinfo>? = first
+            while let current = ptr {
+                if let addr = current.pointee.ai_addr, addr.pointee.sa_family == UInt8(AF_INET) {
+                    var ipBuffer = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
+                    let sa = addr.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { $0.pointee }
+                    var inAddr = sa.sin_addr
+                    if inet_ntop(AF_INET, &inAddr, &ipBuffer, socklen_t(INET_ADDRSTRLEN)) != nil {
+                        let resolved = String(cString: ipBuffer)
+                        if !resolved.isEmpty && resolved != "127.0.0.1" && !resolved.hasPrefix("127.") {
+                            return resolved
+                        }
+                    }
+                }
+                ptr = current.pointee.ai_next
+            }
+        }
+        return nil
     }
     
     private func removePeer(name: String) {

@@ -6,6 +6,7 @@ import CryptoKit
 public final class DaylightHTTPServer: @unchecked Sendable {
     public let port: UInt16
     public let deviceId: String
+    public let deviceName: String
     public var incomingDirectory: URL
     public let loopSuppression: LoopSuppressionEngine
     
@@ -73,11 +74,13 @@ public final class DaylightHTTPServer: @unchecked Sendable {
     public init(
         port: UInt16 = ProtocolConstants.macPort,
         deviceId: String,
+        deviceName: String = Host.current().localizedName ?? "Mac",
         incomingDirectory: URL? = nil,
         loopSuppression: LoopSuppressionEngine? = nil
     ) {
         self.port = port
         self.deviceId = deviceId
+        self.deviceName = deviceName
         self.loopSuppression = loopSuppression ?? LoopSuppressionEngine(localDeviceId: deviceId)
         
         if let dir = incomingDirectory {
@@ -105,6 +108,26 @@ public final class DaylightHTTPServer: @unchecked Sendable {
         
         let nwListener = try NWListener(using: parameters, on: nwPort)
         self.listener = nwListener
+        
+        var txtRecord = NWTXTRecord()
+        txtRecord["devId"] = deviceId
+        txtRecord["devName"] = deviceName
+        txtRecord["devModel"] = "Mac"
+        txtRecord["role"] = ProtocolConstants.roleMac
+        txtRecord["port"] = "\(port)"
+        txtRecord["protoVer"] = ProtocolConstants.protocolVersion
+        txtRecord["dropPath"] = ProtocolConstants.dropEndpoint
+        txtRecord["wsPath"] = ProtocolConstants.webSocketEndpoint
+        if let wifiIp = DaylightDropAdvertiser.getWifiIPv4Address() {
+            txtRecord["ip"] = wifiIp
+        }
+        
+        nwListener.service = NWListener.Service(
+            name: deviceName,
+            type: ProtocolConstants.serviceType,
+            domain: nil,
+            txtRecord: txtRecord
+        )
         
         nwListener.stateUpdateHandler = { [weak self] state in
             guard let self = self else { return }

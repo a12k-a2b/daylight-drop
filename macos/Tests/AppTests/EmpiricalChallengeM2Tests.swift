@@ -3,7 +3,7 @@ import Cocoa
 import Carbon
 import SwiftUI
 import CryptoKit
-@testable import DaylightDropApp
+@testable import DaylightDropKit
 @testable import DaylightDropTransport
 
 final class TestAtomicBox<T>: @unchecked Sendable {
@@ -481,9 +481,12 @@ final class EmpiricalChallengeM2Tests: XCTestCase {
         let missDurationMs = (CFAbsoluteTimeGetCurrent() - startTimeMiss) * 1000.0
         
         // 2. Second retrieval (Cache Hit)
+        var cached: NSImage?
         let startTimeHit = CFAbsoluteTimeGetCurrent()
-        let cached = provider.cachedThumbnail(for: imgURL, targetSize: CGSize(width: 96, height: 96))
-        let hitDurationMs = (CFAbsoluteTimeGetCurrent() - startTimeHit) * 1000.0
+        for _ in 0..<5 {
+            cached = provider.cachedThumbnail(for: imgURL, targetSize: CGSize(width: 96, height: 96))
+        }
+        let hitDurationMs = ((CFAbsoluteTimeGetCurrent() - startTimeHit) * 1000.0) / 5.0
         
         NSLog("[EmpiricalTest] Thumbnail Cache Miss: %.2f ms, Cache Hit: %.4f ms", missDurationMs, hitDurationMs)
         

@@ -36,22 +36,32 @@ public final class FloatingTrayPanel: NSPanel {
         return false
     }
     
+    public var onPasteCommand: (() -> Void)?
+    
     // MARK: - Frame Calculation & Clamping
     
     public func calculateFrame(relativeTo button: NSStatusBarButton, panelSize: NSSize) -> NSRect {
         guard let buttonWindow = button.window else {
-            return NSRect(origin: .zero, size: panelSize)
+            let screen = NSScreen.main ?? NSScreen.screens.first!
+            let visibleFrame = screen.visibleFrame
+            let originX = visibleFrame.midX - (panelSize.width / 2.0)
+            let originY = visibleFrame.maxY - panelSize.height - 6.0
+            return NSRect(origin: NSPoint(x: originX, y: originY), size: panelSize)
         }
         let buttonScreenRect = buttonWindow.convertToScreen(button.bounds)
         let screen = buttonWindow.screen ?? NSScreen.main ?? NSScreen.screens.first!
         let visibleFrame = screen.visibleFrame
         
         var originX = buttonScreenRect.midX - (panelSize.width / 2.0)
+        // If button bounds were not yet laid out (0 width), center near top-right
+        if buttonScreenRect.width <= 1.0 {
+            originX = visibleFrame.maxX - panelSize.width - 24.0
+        }
         // Clamp to screen edges with 8px margin
         originX = max(visibleFrame.minX + 8.0, min(originX, visibleFrame.maxX - panelSize.width - 8.0))
         
         // Position 6px beneath menu bar
-        let originY = buttonScreenRect.minY - panelSize.height - 6.0
+        let originY = buttonScreenRect.height > 1.0 ? (buttonScreenRect.minY - panelSize.height - 6.0) : (visibleFrame.maxY - panelSize.height - 6.0)
         
         return NSRect(origin: NSPoint(x: originX, y: originY), size: panelSize)
     }
@@ -103,12 +113,34 @@ public final class FloatingTrayPanel: NSPanel {
             // 3. Otherwise, outside click dismisses the tray
             self.hide()
         }
+        
+        // F25: Local Event Monitor for In-Tray Cmd+V Paste
+        localEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self = self, self.isVisible else { return event }
+            let isCmd = event.modifierFlags.contains(.command)
+            let isV = (event.keyCode == 9) // 9 = 'v'
+            
+            if isCmd && isV {
+                // If user is currently typing in a text field, let standard text paste happen
+                if let responder = self.firstResponder, responder is NSTextView {
+                    return event
+                }
+                // Otherwise paste clipboard contents directly into the "From Mac" shelf
+                self.onPasteCommand?()
+                return nil
+            }
+            return event
+        }
     }
     
     public func stopOutsideClickMonitoring() {
         if let monitor = globalEventMonitor {
             NSEvent.removeMonitor(monitor)
             globalEventMonitor = nil
+        }
+        if let local = localEventMonitor {
+            NSEvent.removeMonitor(local)
+            localEventMonitor = nil
         }
     }
 }

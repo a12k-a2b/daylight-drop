@@ -56,7 +56,7 @@ def main():
             "swiftc", "-parse-as-library",
             "-I", "macos/.build/arm64-apple-macosx/debug/Modules",
             *subprocess.check_output(
-                f"ls {os.path.join(PROJECT_ROOT, 'macos/.build/arm64-apple-macosx/debug/DaylightDropApp.build/*.swift.o')} {os.path.join(PROJECT_ROOT, 'macos/.build/arm64-apple-macosx/debug/DaylightDropTransport.build/*.swift.o')}",
+                f"ls {os.path.join(PROJECT_ROOT, 'macos/.build/arm64-apple-macosx/debug/DaylightDropKit.build/*.swift.o')} {os.path.join(PROJECT_ROOT, 'macos/.build/arm64-apple-macosx/debug/DaylightDropTransport.build/*.swift.o')}",
                 shell=True, text=True
             ).split(),
             "-o", stress_bin,

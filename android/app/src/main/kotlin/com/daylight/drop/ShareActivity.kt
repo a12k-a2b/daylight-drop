@@ -55,6 +55,8 @@ class ShareActivity : Activity() {
         }
     }
 
+    data class StagedShare(val file: File, val dropType: String, val displayName: String)
+
     /**
      * Inspects the incoming share intent and dispatches text or files to Mac.
      */
@@ -66,14 +68,8 @@ class ShareActivity : Activity() {
 
         when (action) {
             Intent.ACTION_SEND -> {
-                if (intent.hasExtra(Intent.EXTRA_TEXT)) {
-                    val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)
-                    if (!sharedText.isNullOrEmpty()) {
-                        shareTextAsync(sharedText)
-                    } else {
-                        showSolToast(getString(R.string.toast_share_empty))
-                    }
-                } else if (intent.hasExtra(Intent.EXTRA_STREAM)) {
+                var handledAny = false
+                if (intent.hasExtra(Intent.EXTRA_STREAM)) {
                     @Suppress("DEPRECATION")
                     val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
@@ -82,10 +78,24 @@ class ShareActivity : Activity() {
                     }
 
                     if (uri != null) {
-                        shareUrisAsync(listOf(uri))
-                    } else {
-                        showSolToast(getString(R.string.toast_share_empty))
+                        val staged = stageUrisSynchronously(listOf(uri))
+                        if (staged.isNotEmpty()) {
+                            dispatchStagedSharesAsync(staged)
+                            handledAny = true
+                        }
                     }
+                }
+
+                if (intent.hasExtra(Intent.EXTRA_TEXT)) {
+                    val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)
+                    if (!sharedText.isNullOrEmpty()) {
+                        shareTextAsync(sharedText)
+                        handledAny = true
+                    }
+                }
+
+                if (!handledAny) {
+                    showSolToast(getString(R.string.toast_share_empty))
                 }
             }
             Intent.ACTION_SEND_MULTIPLE -> {
@@ -97,7 +107,12 @@ class ShareActivity : Activity() {
                 }
 
                 if (!uris.isNullOrEmpty()) {
-                    shareUrisAsync(uris)
+                    val staged = stageUrisSynchronously(uris)
+                    if (staged.isNotEmpty()) {
+                        dispatchStagedSharesAsync(staged)
+                    } else {
+                        showSolToast(getString(R.string.toast_share_empty))
+                    }
                 } else {
                     showSolToast(getString(R.string.toast_share_empty))
                 }
@@ -109,6 +124,41 @@ class ShareActivity : Activity() {
 
         // Return user to their app with zero flicker
         finishWithZeroAnimation()
+    }
+
+    /**
+     * Copies streams synchronously to cacheDir while URI permissions remain valid.
+     */
+    private fun stageUrisSynchronously(uris: List<Uri>): List<StagedShare> {
+        val result = mutableListOf<StagedShare>()
+        val context = applicationContext
+        for (uri in uris) {
+            try {
+                val displayName = resolveFilename(context, uri) ?: "share_${System.currentTimeMillis()}"
+                val tempFile = File(context.cacheDir, "direct_share_${UUID.randomUUID()}_$displayName")
+
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    FileOutputStream(tempFile).use { output ->
+                        input.copyTo(output)
+                    }
+                }
+
+                if (tempFile.exists() && tempFile.length() > 0) {
+                    val mimeType = context.contentResolver.getType(uri) ?: "application/octet-stream"
+                    val dropType = when {
+                        mimeType.startsWith("image/") -> "image"
+                        mimeType.contains("pdf") -> "document"
+                        else -> "file"
+                    }
+                    result.add(StagedShare(tempFile, dropType, displayName))
+                } else {
+                    tempFile.delete()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed staging URI synchronously: $uri", e)
+            }
+        }
+        return result
     }
 
     /**
@@ -141,10 +191,10 @@ class ShareActivity : Activity() {
     }
 
     /**
-     * Beams one or more shared URIs to Mac via AndroidHttpClient.sendDrop().
+     * Beams one or more staged files to Mac via AndroidHttpClient.sendDrop().
      */
-    private fun shareUrisAsync(uris: List<Uri>) {
-        val count = uris.size
+    private fun dispatchStagedSharesAsync(staged: List<StagedShare>) {
+        val count = staged.size
         val message = if (count == 1) {
             getString(R.string.toast_sharing_file_to_mac)
         } else {
@@ -152,42 +202,24 @@ class ShareActivity : Activity() {
         }
         showSolToast(message)
 
-        val context = applicationContext
         PeerTargetManager.applicationScope.launch(Dispatchers.IO) {
-            for (uri in uris) {
-                var tempFile: File? = null
+            for (item in staged) {
                 try {
-                    val displayName = resolveFilename(context, uri) ?: "share_${System.currentTimeMillis()}"
-                    tempFile = File(context.cacheDir, "direct_share_${UUID.randomUUID()}_$displayName")
-
-                    context.contentResolver.openInputStream(uri)?.use { input ->
-                        FileOutputStream(tempFile).use { output ->
-                            input.copyTo(output)
-                        }
-                    }
-
-                    val mimeType = context.contentResolver.getType(uri) ?: "application/octet-stream"
-                    val dropType = when {
-                        mimeType.startsWith("image/") -> "image"
-                        mimeType.contains("pdf") -> "document"
-                        else -> "file"
-                    }
-
                     val host = PeerTargetManager.getActiveHost()
                     val port = ProtocolConstants.MAC_PORT
 
                     PeerTargetManager.httpClient.sendDrop(
-                        file = tempFile,
-                        type = dropType,
+                        file = item.file,
+                        type = item.dropType,
                         origin = PeerTargetManager.getLocalDeviceId(),
                         targetHost = host,
                         targetPort = port
                     )
-                    Log.i(TAG, "Direct shared file beamed: $displayName ($dropType)")
+                    Log.i(TAG, "Direct shared file beamed: ${item.displayName} (${item.dropType})")
                 } catch (e: Exception) {
-                    Log.e(TAG, "Failed beaming shared file uri: $uri", e)
+                    Log.e(TAG, "Failed beaming shared file: ${item.displayName}", e)
                 } finally {
-                    tempFile?.delete()
+                    item.file.delete()
                 }
             }
         }

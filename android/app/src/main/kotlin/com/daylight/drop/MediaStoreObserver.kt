@@ -12,6 +12,8 @@ import com.daylight.drop.transport.AndroidTransportManager
 import com.daylight.drop.transport.LoopSuppressionEngine
 import kotlinx.coroutines.*
 import java.io.File
+import java.io.FileOutputStream
+import java.io.InputStream
 import java.io.FileNotFoundException
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
@@ -167,23 +169,44 @@ class MediaStoreObserver(
     }
 
     private fun processAndDispatchScreenshot(id: Long, filename: String, size: Long, path: String) {
-        val file = File(path)
-        if (!file.exists() || !file.canRead()) {
-            Log.w(TAG, "Screenshot file not accessible on disk: $path")
-            updateWatermark(id)
-            inFlightIds.remove(id)
-            return
-        }
-
+        val uri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
+        var cachedFile: File? = null
         try {
-            val bytes = file.readBytes()
-            if (bytes.isEmpty()) {
+            // First try reading via ContentResolver (Scoped Storage compliant)
+            val inputStream = try {
+                context.contentResolver.openInputStream(uri)
+            } catch (e: Exception) {
+                Log.w(TAG, "ContentResolver could not open URI $uri: ${e.message}")
+                null
+            }
+
+            val directFile = File(path)
+            if (inputStream == null && (!directFile.exists() || !directFile.canRead())) {
+                Log.w(TAG, "Screenshot not accessible via URI or disk: $filename")
+                updateWatermark(id)
+                inFlightIds.remove(id)
+                return
+            }
+
+            cachedFile = File(context.cacheDir, "obs_screenshot_${id}_$filename")
+            if (inputStream != null) {
+                inputStream.use { input ->
+                    FileOutputStream(cachedFile).use { output ->
+                        input.copyTo(output)
+                    }
+                }
+            } else {
+                directFile.copyTo(cachedFile, overwrite = true)
+            }
+
+            if (cachedFile.length() <= 0L) {
                 Log.w(TAG, "Screenshot file was 0 bytes on read: $filename")
                 updateWatermark(id)
                 inFlightIds.remove(id)
                 return
             }
 
+            val bytes = cachedFile.readBytes()
             val sha256 = LoopSuppressionEngine.computeSha256(bytes)
             if (transportManager.loopSuppression.shouldSuppress(sha256)) {
                 Log.d(TAG, "Suppressing screenshot already in LRU cache: $filename")
@@ -198,10 +221,10 @@ class MediaStoreObserver(
             // Stream to Mac using drop_type="screenshot" per contract with TransferWakeLock
             DaylightDropService.acquireWakeLock(60_000L)
             try {
-                val response = transportManager.sendFile(file, type = "screenshot")
+                val response = transportManager.sendFile(cachedFile, type = "screenshot")
                 Log.i(TAG, "Screenshot successfully beamed to Mac: ${response.transfer_id}")
                 updateWatermark(id)
-                onScreenshotDispatched?.invoke(file, sha256)
+                onScreenshotDispatched?.invoke(cachedFile, sha256)
             } finally {
                 DaylightDropService.releaseWakeLock()
             }
@@ -209,11 +232,12 @@ class MediaStoreObserver(
             Log.w(TAG, "Screenshot deleted before dispatch: $filename", e)
             updateWatermark(id)
         } catch (e: IOException) {
-            Log.e(TAG, "I/O error streaming screenshot to Mac: $filename", e)
-            updateWatermark(id)
+            // Transient network I/O error: do not advance watermark so it can retry
+            Log.e(TAG, "Transient I/O error streaming screenshot to Mac: $filename (will retry)", e)
         } catch (e: Exception) {
             Log.e(TAG, "Unexpected error streaming screenshot: $filename", e)
         } finally {
+            cachedFile?.delete()
             inFlightIds.remove(id)
         }
     }

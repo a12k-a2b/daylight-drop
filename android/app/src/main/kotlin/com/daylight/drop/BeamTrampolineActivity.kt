@@ -118,7 +118,12 @@ class BeamTrampolineActivity : Activity() {
         val text = item.text?.toString() ?: item.coerceToText(this)?.toString()
 
         if (uri != null) {
-            beamUriAsync(uri)
+            val staged = stageClipboardUriSynchronously(uri)
+            if (staged != null) {
+                beamStagedClipAsync(staged)
+            } else {
+                showSolToast(getString(R.string.toast_clipboard_unsupported))
+            }
         } else if (!text.isNullOrEmpty()) {
             beamTextAsync(text)
         } else {
@@ -195,42 +200,55 @@ class BeamTrampolineActivity : Activity() {
         }
     }
 
+    data class StagedClip(val file: File, val type: String, val filename: String)
+
+    private fun stageClipboardUriSynchronously(uri: Uri): StagedClip? {
+        val context = applicationContext
+        return try {
+            val filename = resolveFilename(context, uri) ?: "clipboard_${System.currentTimeMillis()}"
+            val tempFile = File(context.cacheDir, "drop_clip_${UUID.randomUUID()}_$filename")
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(tempFile).use { output ->
+                    input.copyTo(output)
+                }
+            }
+            if (tempFile.exists() && tempFile.length() > 0) {
+                val type = if (context.contentResolver.getType(uri)?.startsWith("image/") == true) "image" else "document"
+                StagedClip(tempFile, type, filename)
+            } else {
+                tempFile.delete()
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed staging clipboard URI synchronously", e)
+            null
+        }
+    }
+
     /**
      * Beams URI/image payload to Mac via AndroidHttpClient.sendDrop().
      */
-    private fun beamUriAsync(uri: Uri) {
+    private fun beamStagedClipAsync(staged: StagedClip) {
         showSolToast(getString(R.string.toast_beaming_file))
-        val context = applicationContext
 
         PeerTargetManager.applicationScope.launch(Dispatchers.IO) {
             DaylightDropService.acquireWakeLock(60_000L)
-            var tempFile: File? = null
             try {
-                val filename = resolveFilename(context, uri) ?: "clipboard_${System.currentTimeMillis()}"
-                tempFile = File(context.cacheDir, "drop_clip_${UUID.randomUUID()}_$filename")
-                
-                context.contentResolver.openInputStream(uri)?.use { input ->
-                    FileOutputStream(tempFile).use { output ->
-                        input.copyTo(output)
-                    }
-                }
-
-                val type = if (context.contentResolver.getType(uri)?.startsWith("image/") == true) "image" else "document"
                 val host = PeerTargetManager.getActiveHost()
                 val port = ProtocolConstants.MAC_PORT
 
                 PeerTargetManager.httpClient.sendDrop(
-                    file = tempFile,
-                    type = type,
+                    file = staged.file,
+                    type = staged.type,
                     origin = PeerTargetManager.getLocalDeviceId(),
                     targetHost = host,
                     targetPort = port
                 )
-                Log.i(TAG, "Beamed clipboard URI successfully: $filename")
+                Log.i(TAG, "Beamed clipboard URI successfully: ${staged.filename}")
             } catch (e: Exception) {
                 Log.e(TAG, "Failed beaming clipboard URI", e)
             } finally {
-                tempFile?.delete()
+                staged.file.delete()
                 DaylightDropService.releaseWakeLock()
             }
         }

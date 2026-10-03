@@ -26,22 +26,38 @@ public struct OutboundShelfView: View {
             }
             .padding(.horizontal, 12)
             
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 8) {
-                    // Persistent Drop Zone Card
-                    PersistentDropZoneCard(onDrop: handleDrop)
-                        .frame(width: 92, height: 116)
-                    
-                    // Outbound items
-                    ForEach(stagingManager.outboundItems) { item in
-                        OutboundCardView(item: item)
-                            .frame(width: 108, height: 116)
+            HStack(spacing: 8) {
+                // Fixed Persistent Drop Zone Card (never scrolls away)
+                PersistentDropZoneCard(onDrop: handleDrop)
+                    .frame(width: 96, height: 116)
+                
+                // Outbound items horizontal scroll
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: 8) {
+                        ForEach(stagingManager.outboundItems) { item in
+                            OutboundCardView(item: item)
+                                .frame(width: 108, height: 116)
+                        }
                     }
+                    .padding(.vertical, 2)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 2)
             }
-            .frame(height: 120)
+            .padding(8)
+            .background(
+                RoundedRectangle(cornerRadius: SolOSTokens.cornerRadiusMedium)
+                    .fill(SolOSTokens.os150)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: SolOSTokens.cornerRadiusMedium)
+                            .strokeBorder(SolOSTokens.os300, style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                    )
+            )
+            .padding(.horizontal, 12)
+            .dropDestination(for: URL.self) { items, location in
+                guard !items.isEmpty else { return false }
+                handleDrop(urls: items)
+                return true
+            }
+            .frame(height: 132)
         }
     }
     

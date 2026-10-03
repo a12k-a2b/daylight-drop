@@ -237,8 +237,8 @@ public final class ADBDeviceTracker: @unchecked Sendable {
         lock.unlock()
         
         for serial in newlyAttached {
-            onDeviceAttached?(serial, "DC_1")
             setupTunnel(serial: serial)
+            onDeviceAttached?(serial, "DC_1")
         }
         
         for serial in newlyDetached {
@@ -248,16 +248,24 @@ public final class ADBDeviceTracker: @unchecked Sendable {
     }
     
     public func setupTunnel(serial: String) {
+        // 0. Remove stale tunnels first
+        _ = commandExecutor(["-s", serial, "forward", "--remove", "tcp:\(ProtocolConstants.androidPort)"])
+        _ = commandExecutor(["-s", serial, "reverse", "--remove", "tcp:\(ProtocolConstants.macPort)"])
+        
         // 1. adb -s <serial> reverse tcp:8765 tcp:8765
-        _ = commandExecutor(["-s", serial, "reverse", "tcp:\(ProtocolConstants.macPort)", "tcp:\(ProtocolConstants.macPort)"])
+        let revResult = commandExecutor(["-s", serial, "reverse", "tcp:\(ProtocolConstants.macPort)", "tcp:\(ProtocolConstants.macPort)"])
         // 2. adb -s <serial> forward tcp:8766 tcp:8766
-        _ = commandExecutor(["-s", serial, "forward", "tcp:\(ProtocolConstants.androidPort)", "tcp:\(ProtocolConstants.androidPort)"])
+        let fwdResult = commandExecutor(["-s", serial, "forward", "tcp:\(ProtocolConstants.androidPort)", "tcp:\(ProtocolConstants.androidPort)"])
         
-        lock.lock()
-        activeTunnelSerials.insert(serial)
-        lock.unlock()
-        
-        onTunnelEstablished?(serial)
+        if revResult.code == 0 && fwdResult.code == 0 {
+            lock.lock()
+            activeTunnelSerials.insert(serial)
+            lock.unlock()
+            
+            onTunnelEstablished?(serial)
+        } else {
+            NSLog("[ADBDeviceTracker] Tunnel setup partial failure for %@: rev=%d fwd=%d", serial, revResult.code, fwdResult.code)
+        }
     }
     
     public func teardownTunnel(serial: String) {

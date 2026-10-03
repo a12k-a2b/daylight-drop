@@ -146,13 +146,12 @@ public final class CarbonHotKeyManager: @unchecked Sendable {
     
     public func registerDefaultHotkeys(
         onToggleTray: @escaping HotKeyAction,
-        onBeamClipboard: @escaping HotKeyAction
+        onBeamClipboard: HotKeyAction? = nil
     ) {
         // Cmd + Shift + D: Toggle Tray
         // kVK_ANSI_D = 0x02, cmdKey = 0x0100, shiftKey = 0x0200 -> 0x0300
         let cmdShift: UInt32 = UInt32(cmdKey | shiftKey)
         let kVK_ANSI_D: UInt32 = 0x02
-        let kVK_ANSI_V: UInt32 = 0x09
         
         registerHotKey(
             keyCode: kVK_ANSI_D,
@@ -161,12 +160,15 @@ public final class CarbonHotKeyManager: @unchecked Sendable {
             action: onToggleTray
         )
         
-        registerHotKey(
-            keyCode: kVK_ANSI_V,
-            modifiers: cmdShift,
-            id: Self.beamClipboardID,
-            action: onBeamClipboard
-        )
+        if let onBeamClipboard = onBeamClipboard {
+            let kVK_ANSI_V: UInt32 = 0x09
+            registerHotKey(
+                keyCode: kVK_ANSI_V,
+                modifiers: cmdShift,
+                id: Self.beamClipboardID,
+                action: onBeamClipboard
+            )
+        }
     }
     
     // MARK: - Clipboard Beam Handler with Loop Suppression

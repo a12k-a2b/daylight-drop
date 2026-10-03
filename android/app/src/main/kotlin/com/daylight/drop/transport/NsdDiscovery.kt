@@ -27,8 +27,31 @@ class DaylightNsdAdvertiser(
     private var registrationListener: NsdManager.RegistrationListener? = null
     val isRegistered = AtomicBoolean(false)
 
+    companion object {
+        fun getLocalWifiIpAddress(): String? {
+            try {
+                val interfaces = java.net.NetworkInterface.getNetworkInterfaces() ?: return null
+                for (nif in interfaces) {
+                    if (nif.isLoopback || !nif.isUp) continue
+                    val addrs = nif.inetAddresses
+                    for (addr in addrs) {
+                        if (!addr.isLoopbackAddress && addr is java.net.Inet4Address) {
+                            val hostAddress = addr.hostAddress
+                            if (hostAddress != null && !hostAddress.startsWith("127.")) {
+                                return hostAddress
+                            }
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+            return null
+        }
+    }
+
     fun register() {
         if (nsdManager == null || isRegistered.get()) return
+
+        val localIp = getLocalWifiIpAddress() ?: ipHint
 
         val serviceInfo = NsdServiceInfo().apply {
             serviceName = "Daylight DC1 ($deviceId)"
@@ -40,7 +63,7 @@ class DaylightNsdAdvertiser(
             setAttribute("role", ProtocolConstants.ROLE_ANDROID)
             setAttribute("port", this@DaylightNsdAdvertiser.port.toString())
             setAttribute("protoVer", ProtocolConstants.PROTOCOL_VERSION)
-            setAttribute("ip", ipHint)
+            setAttribute("ip", localIp)
             setAttribute("dropPath", ProtocolConstants.DROP_ENDPOINT)
             setAttribute("wsPath", ProtocolConstants.WS_ENDPOINT)
         }

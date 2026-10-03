@@ -40,3 +40,8 @@ __pycache__/
 
 # Antigravity agent execution traces
 .agents/
+
+# Compiled test binaries
+tests/challenger_m1/swift_benchmark
+tests/challenger_m1/swift_server_runner
+tests/empirical_m2_r2_stress

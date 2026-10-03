@@ -18,8 +18,9 @@ public final class StatusItemController: NSObject {
         self.stagingManager = stagingManager
         self.transportManager = transportManager
         
-        // 1. Create NSStatusItem
+        // 1. Create NSStatusItem with autosaveName for persistent menu bar placement
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        self.statusItem.autosaveName = "DaylightDrop"
         
         // 2. Create FloatingTrayPanel
         self.panel = FloatingTrayPanel(contentRect: NSRect(x: 0, y: 0, width: 440, height: 440))
@@ -93,8 +94,89 @@ public final class StatusItemController: NSObject {
                         self.stagingManager.updateOutboundStatus(id: staged.id, status: .beamed)
                     } catch {
                         NSLog("[StatusItemController] Drop beam error: %@", error.localizedDescription)
-                        // Status will remain as queued or failed
                     }
+                }
+            }
+        }
+        
+        // F25: Pasteboard Cmd+V handler on tray
+        panel.onPasteCommand = { [weak self] in
+            self?.handleTrayPaste()
+        }
+    }
+    
+    public func handleTrayPaste() {
+        let pb = NSPasteboard.general
+        
+        // 1. Files from Finder (file URLs or NSFilenamesPboardType)
+        var candidateURLs: [URL] = []
+        if let urls = pb.readObjects(forClasses: [NSURL.self], options: nil) as? [URL] {
+            candidateURLs.append(contentsOf: urls.filter { $0.isFileURL })
+        }
+        if candidateURLs.isEmpty, let filenames = pb.propertyList(forType: NSPasteboard.PasteboardType("NSFilenamesPboardType")) as? [String] {
+            candidateURLs.append(contentsOf: filenames.map { URL(fileURLWithPath: $0) })
+        }
+        
+        if !candidateURLs.isEmpty {
+            for url in candidateURLs {
+                Task {
+                    do {
+                        let staged = try self.stagingManager.stageOutboundFile(url: url)
+                        self.stagingManager.updateOutboundStatus(id: staged.id, status: .beaming)
+                        _ = try await self.transportManager.sendFile(fileURL: staged.fileURL)
+                        self.stagingManager.updateOutboundStatus(id: staged.id, status: .beamed)
+                    } catch {
+                        NSLog("[StatusItemController] Paste file beam error: %@", error.localizedDescription)
+                    }
+                }
+            }
+            return
+        }
+        
+        // 2. Images from clipboard (JPEG, PNG, TIFF)
+        let imageTypes: [NSPasteboard.PasteboardType] = [
+            NSPasteboard.PasteboardType("public.png"),
+            NSPasteboard.PasteboardType("public.jpeg"),
+            .tiff
+        ]
+        for imgType in imageTypes {
+            if let imgData = pb.data(forType: imgType), let image = NSImage(data: imgData) {
+                if let tiff = image.tiffRepresentation,
+                   let rep = NSBitmapImageRep(data: tiff),
+                   let pngData = rep.representation(using: .png, properties: [:]) {
+                    let filename = "pasted_image_\(Int(Date().timeIntervalSince1970)).png"
+                    let tempDir = self.stagingManager.outgoingDirectory
+                    let fileURL = tempDir.appendingPathComponent(filename)
+                    do {
+                        try pngData.write(to: fileURL)
+                        Task {
+                            do {
+                                let staged = try self.stagingManager.stageOutboundFile(url: fileURL)
+                                self.stagingManager.updateOutboundStatus(id: staged.id, status: .beaming)
+                                _ = try await self.transportManager.sendFile(fileURL: staged.fileURL, type: "image")
+                                self.stagingManager.updateOutboundStatus(id: staged.id, status: .beamed)
+                            } catch {
+                                NSLog("[StatusItemController] Paste image beam error: %@", error.localizedDescription)
+                            }
+                        }
+                        return
+                    } catch {
+                        NSLog("[StatusItemController] Failed to write pasted image: %@", error.localizedDescription)
+                    }
+                }
+            }
+        }
+        
+        // 3. Text / Rich text / Prompt string
+        if let string = pb.string(forType: .string), !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let staged = self.stagingManager.stageOutboundPrompt(prompt: string)
+            self.stagingManager.updateOutboundStatus(id: staged.id, status: .beaming)
+            Task {
+                do {
+                    _ = try await self.transportManager.sendText(text: string, type: "prompt")
+                    self.stagingManager.updateOutboundStatus(id: staged.id, status: .beamed)
+                } catch {
+                    self.stagingManager.updateOutboundStatus(id: staged.id, status: .failed)
                 }
             }
         }
@@ -183,9 +265,6 @@ public final class DaylightDropAppDelegate: NSObject, NSApplicationDelegate {
                 Task { @MainActor in
                     DaylightDropAppDelegate.shared.statusItemController?.toggleTray()
                 }
-            },
-            onBeamClipboard: {
-                CarbonHotKeyManager.beamCurrentClipboard()
             }
         )
     }

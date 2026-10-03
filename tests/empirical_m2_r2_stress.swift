@@ -1,7 +1,7 @@
 import Foundation
 import Cocoa
 import AppKit
-@testable import DaylightDropApp
+@testable import DaylightDropKit
 @testable import DaylightDropTransport
 
 @main

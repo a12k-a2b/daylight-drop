@@ -218,7 +218,8 @@ class InboundStorageManager(
             .setContentText(payload.text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(payload.text))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setSound(null)
+            .setVibrate(null)
             .setAutoCancel(true)
             .addAction(android.R.drawable.ic_menu_save, "Copy", copyPendingIntent)
             .build()
@@ -235,6 +236,8 @@ class InboundStorageManager(
             .setContentTitle("File Received")
             .setContentText("${file.name} (${formatBytes(file.length())})")
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setSound(null)
+            .setVibrate(null)
             .setAutoCancel(true)
             .build()
 
@@ -295,7 +298,7 @@ class InboundStorageManager(
 
                 var target = File(incomingDir, safeName)
                 var index = 1
-                while (!target.createNewFile()) {
+                while (target.exists()) {
                     target = File(incomingDir, "$baseName ($index)$extension")
                     index++
                 }

@@ -33,10 +33,12 @@ public struct InboundShelfView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: 8) {
                         ForEach(stagingManager.inboundItems) { item in
-                            DraggableCardContainer(fileURL: item.fileURL) {
-                                InboundCardView(item: item)
-                            }
-                            .frame(width: 108, height: 116)
+                            InboundCardView(item: item)
+                                .frame(width: 108, height: 116)
+                                .onDrag {
+                                    DragCoordinator.shared.notifyDragBegan(url: item.fileURL)
+                                    return NSItemProvider(object: item.fileURL as NSURL)
+                                }
                         }
                     }
                     .padding(.horizontal, 12)
@@ -115,10 +117,18 @@ public struct InboundCardView: View {
                         .foregroundColor(SolOSTokens.os400)
                 }
                 
-                // Copy button overlay on hover
+                // Copy button and drag grip overlay on hover
                 if isHovered || copiedFeedback {
                     VStack {
                         HStack {
+                            Image(systemName: "hand.draw")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundColor(SolOSTokens.os0)
+                                .padding(4)
+                                .background(SolOSTokens.os900.opacity(0.85))
+                                .clipShape(Circle())
+                                .padding(4)
+                                .help("Drag out to Finder, Slack, or Obsidian")
                             Spacer()
                             Button(action: copyToClipboard) {
                                 Image(systemName: copiedFeedback ? "checkmark" : "doc.on.doc")
@@ -189,14 +199,19 @@ public struct InboundCardView: View {
         
         let originType = NSPasteboard.PasteboardType("com.daylight.drop.origin")
         let origin = item.origin ?? TransportManager.shared.activeUsbSerial ?? TransportManager.shared.activeWifiPeer?.deviceId ?? "daylight-dc1"
-        pb.setString(origin, forType: originType)
+        
+        let itemProvider = NSPasteboardItem()
+        itemProvider.setString(origin, forType: originType)
         
         if item.type == .screenshot || item.type == .pdf || item.type == .file {
-            pb.writeObjects([item.fileURL as NSURL])
+            itemProvider.setString(item.fileURL.absoluteString, forType: .fileURL)
+            pb.writeObjects([itemProvider, item.fileURL as NSURL])
         } else if let preview = item.previewText {
-            pb.setString(preview, forType: .string)
+            itemProvider.setString(preview, forType: .string)
+            pb.writeObjects([itemProvider])
         } else if let content = try? String(contentsOf: item.fileURL) {
-            pb.setString(content, forType: .string)
+            itemProvider.setString(content, forType: .string)
+            pb.writeObjects([itemProvider])
         }
         
         copiedFeedback = true

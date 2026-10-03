@@ -1,7 +1,7 @@
 import XCTest
 import Cocoa
 import SwiftUI
-@testable import DaylightDropApp
+@testable import DaylightDropKit
 @testable import DaylightDropTransport
 
 final class AtomicBoolBox: @unchecked Sendable {

@@ -85,6 +85,13 @@ class EmpiricalChallengerM3MechanicsTests {
     @Test
     fun testTrampolineSynchronousFocusExecutionUnder25ms() {
         val engine = LoopSuppressionEngine(localDeviceId = "dc1-challenger")
+        // Warmup JIT and MessageDigest provider
+        repeat(50) {
+            val warmupSha = LoopSuppressionEngine.computeSha256("warmup $it")
+            engine.shouldSuppressHash(warmupSha)
+            engine.recordHash(warmupSha)
+        }
+
         val iterations = 500
         val maxAllowedDurationMs = 25.0
 

@@ -111,20 +111,22 @@ final class TransportTests: XCTestCase {
         XCTAssertEqual(attachedSerial, "JMBR00380")
         XCTAssertTrue(tracker.activeTunnelSerials.contains("JMBR00380"))
         
-        // Verify executed commands: reverse 8765:8765 and forward 8766:8766
-        XCTAssertEqual(recordedCommands.count, 2)
-        XCTAssertEqual(recordedCommands[0], ["-s", "JMBR00380", "reverse", "tcp:8765", "tcp:8765"])
-        XCTAssertEqual(recordedCommands[1], ["-s", "JMBR00380", "forward", "tcp:8766", "tcp:8766"])
+        // Verify executed commands: clean stale forward/reverse, then bind reverse 8765:8765 and forward 8766:8766
+        XCTAssertEqual(recordedCommands.count, 4)
+        XCTAssertEqual(recordedCommands[0], ["-s", "JMBR00380", "forward", "--remove", "tcp:8766"])
+        XCTAssertEqual(recordedCommands[1], ["-s", "JMBR00380", "reverse", "--remove", "tcp:8765"])
+        XCTAssertEqual(recordedCommands[2], ["-s", "JMBR00380", "reverse", "tcp:8765", "tcp:8765"])
+        XCTAssertEqual(recordedCommands[3], ["-s", "JMBR00380", "forward", "tcp:8766", "tcp:8766"])
         
         // Simulate device departure
         tracker.handleDeviceListUpdate("")
         XCTAssertEqual(detachedSerial, "JMBR00380")
         XCTAssertFalse(tracker.activeTunnelSerials.contains("JMBR00380"))
         
-        // Verify teardown commands: forward --remove and reverse --remove
-        XCTAssertEqual(recordedCommands.count, 4)
-        XCTAssertEqual(recordedCommands[2], ["-s", "JMBR00380", "forward", "--remove", "tcp:8766"])
-        XCTAssertEqual(recordedCommands[3], ["-s", "JMBR00380", "reverse", "--remove", "tcp:8765"])
+        // Verify teardown commands: forward --remove and reverse --remove (total 6)
+        XCTAssertEqual(recordedCommands.count, 6)
+        XCTAssertEqual(recordedCommands[4], ["-s", "JMBR00380", "forward", "--remove", "tcp:8766"])
+        XCTAssertEqual(recordedCommands[5], ["-s", "JMBR00380", "reverse", "--remove", "tcp:8765"])
     }
     
     // MARK: - 4. Embedded HTTP Server & Client Integration Tests

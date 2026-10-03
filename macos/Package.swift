@@ -7,13 +7,17 @@ let package = Package(
         .macOS(.v14)
     ],
     products: [
+        .executable(
+            name: "DaylightDropApp",
+            targets: ["DaylightDropApp"]
+        ),
+        .library(
+            name: "DaylightDropKit",
+            targets: ["DaylightDropKit"]
+        ),
         .library(
             name: "DaylightDropTransport",
             targets: ["DaylightDropTransport"]
-        ),
-        .library(
-            name: "DaylightDropApp",
-            targets: ["DaylightDropApp"]
         ),
     ],
     targets: [
@@ -22,10 +26,15 @@ let package = Package(
             path: "Sources/DaylightDropApp/Transport"
         ),
         .target(
-            name: "DaylightDropApp",
+            name: "DaylightDropKit",
             dependencies: ["DaylightDropTransport"],
             path: "Sources/DaylightDropApp",
             exclude: ["Transport"]
+        ),
+        .executableTarget(
+            name: "DaylightDropApp",
+            dependencies: ["DaylightDropKit", "DaylightDropTransport"],
+            path: "Sources/DaylightDropLauncher"
         ),
         .testTarget(
             name: "TransportTests",
@@ -34,7 +43,7 @@ let package = Package(
         ),
         .testTarget(
             name: "AppTests",
-            dependencies: ["DaylightDropApp", "DaylightDropTransport"],
+            dependencies: ["DaylightDropKit", "DaylightDropTransport"],
             path: "Tests/AppTests"
         ),
     ]
