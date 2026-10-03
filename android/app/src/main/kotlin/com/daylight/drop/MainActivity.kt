@@ -328,7 +328,7 @@ class MainActivity : AppCompatActivity() {
 
                 // Thumbnail & Preview Resolution
                 val ext = file.extension.lowercase(Locale.US)
-                val isImage = ext in listOf("png", "jpg", "jpeg", "webp")
+                val isImage = ext in listOf("png", "jpg", "jpeg", "webp", "heic", "heif")
                 val isPdf = ext == "pdf"
                 val isText = ext in listOf("md", "txt", "json", "py", "kt", "xml", "csv")
 
@@ -477,6 +477,8 @@ class MainActivity : AppCompatActivity() {
             "png" -> "image/png"
             "jpg", "jpeg" -> "image/jpeg"
             "webp" -> "image/webp"
+            "heic" -> "image/heic"
+            "heif" -> "image/heif"
             "json" -> "application/json"
             "html" -> "text/html"
             else -> "*/*"

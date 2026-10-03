@@ -433,11 +433,19 @@ public final class StagingManager: ObservableObject, @unchecked Sendable {
     
     // MARK: - Type Inference Helper
     
+    public func inferType(from url: URL, fallbackType: String? = nil) -> StagedItemType {
+        Self.inferType(from: url, fallbackType: fallbackType)
+    }
+    
+    public func inferType(url: URL) -> StagedItemType {
+        Self.inferType(from: url)
+    }
+    
     public static func inferType(from url: URL, fallbackType: String? = nil) -> StagedItemType {
         let ext = url.pathExtension.lowercased()
         let name = url.lastPathComponent.lowercased()
         
-        if name.hasPrefix("screenshot") || ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "webp" {
+        if name.hasPrefix("screenshot") || ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "webp" || ext == "heic" || ext == "heif" {
             return .screenshot
         }
         if ext == "pdf" {

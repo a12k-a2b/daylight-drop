@@ -117,7 +117,7 @@ object TransferHistoryManager {
         for (file in files) {
             val ext = file.extension.lowercase(Locale.US)
             val type = when {
-                ext in listOf("png", "jpg", "jpeg", "webp") -> "image"
+                ext in listOf("png", "jpg", "jpeg", "webp", "heic", "heif") -> "image"
                 ext == "pdf" -> "pdf"
                 ext in listOf("md", "txt") && file.name.startsWith("prompt_") -> "prompt"
                 ext in listOf("md", "txt") -> "note"

@@ -92,7 +92,8 @@ public final class StatusItemController: NSObject {
                         let staged = try self.stagingManager.stageOutboundFile(url: url)
                         stagedId = staged.id
                         self.stagingManager.updateOutboundStatus(id: staged.id, status: .beaming)
-                        _ = try await self.transportManager.sendFile(fileURL: staged.fileURL)
+                        let inferType = self.stagingManager.inferType(url: url).rawValue
+                        _ = try await self.transportManager.sendFile(fileURL: staged.fileURL, type: inferType)
                         self.stagingManager.updateOutboundStatus(id: staged.id, status: .beamed)
                     } catch {
                         NSLog("[StatusItemController] Drop beam error: %@", error.localizedDescription)
@@ -130,7 +131,8 @@ public final class StatusItemController: NSObject {
                         let staged = try self.stagingManager.stageOutboundFile(url: url)
                         stagedId = staged.id
                         self.stagingManager.updateOutboundStatus(id: staged.id, status: .beaming)
-                        _ = try await self.transportManager.sendFile(fileURL: staged.fileURL)
+                        let inferType = self.stagingManager.inferType(url: url).rawValue
+                        _ = try await self.transportManager.sendFile(fileURL: staged.fileURL, type: inferType)
                         self.stagingManager.updateOutboundStatus(id: staged.id, status: .beamed)
                     } catch {
                         NSLog("[StatusItemController] Paste file beam error: %@", error.localizedDescription)
@@ -143,42 +145,50 @@ public final class StatusItemController: NSObject {
             return
         }
         
-        // 2. Images from clipboard (JPEG, PNG, TIFF)
-        let imageTypes: [NSPasteboard.PasteboardType] = [
-            NSPasteboard.PasteboardType("public.png"),
-            NSPasteboard.PasteboardType("public.jpeg"),
-            .tiff
+        // 2. Images from clipboard (HEIC, HEIF, JPEG, PNG, TIFF)
+        let imageTypes: [(NSPasteboard.PasteboardType, String)] = [
+            (NSPasteboard.PasteboardType("public.heic"), "heic"),
+            (NSPasteboard.PasteboardType("public.heif"), "heif"),
+            (NSPasteboard.PasteboardType("public.jpeg"), "jpg"),
+            (NSPasteboard.PasteboardType("public.png"), "png"),
+            (.tiff, "png")
         ]
-        for imgType in imageTypes {
-            if let imgData = pb.data(forType: imgType), let image = NSImage(data: imgData) {
-                if let tiff = image.tiffRepresentation,
-                   let rep = NSBitmapImageRep(data: tiff),
-                   let pngData = rep.representation(using: .png, properties: [:]) {
-                    let filename = "pasted_image_\(Int(Date().timeIntervalSince1970)).png"
-                    let tempDir = self.stagingManager.outgoingDirectory
-                    let fileURL = tempDir.appendingPathComponent(filename)
+        for (imgType, ext) in imageTypes {
+            if let imgData = pb.data(forType: imgType) {
+                let finalData: Data
+                let finalExt: String
+                if imgType == .tiff {
+                    if let image = NSImage(data: imgData),
+                       let tiff = image.tiffRepresentation,
+                       let rep = NSBitmapImageRep(data: tiff),
+                       let pngData = rep.representation(using: .png, properties: [:]) {
+                        finalData = pngData
+                        finalExt = "png"
+                    } else {
+                        finalData = imgData
+                        finalExt = "tiff"
+                    }
+                } else {
+                    finalData = imgData
+                    finalExt = ext
+                }
+                
+                let filename = "pasted_image_\(Int(Date().timeIntervalSince1970)).\(finalExt)"
+                let staged = self.stagingManager.stageOutboundData(data: finalData, filename: filename, type: .screenshot)
+                self.stagingManager.updateOutboundStatus(id: staged.id, status: .beaming)
+                Task {
+                    let stagedId: UUID? = staged.id
                     do {
-                        try pngData.write(to: fileURL)
-                        Task {
-                            var stagedId: UUID? = nil
-                            do {
-                                let staged = try self.stagingManager.stageOutboundFile(url: fileURL)
-                                stagedId = staged.id
-                                self.stagingManager.updateOutboundStatus(id: staged.id, status: .beaming)
-                                _ = try await self.transportManager.sendFile(fileURL: staged.fileURL, type: "image")
-                                self.stagingManager.updateOutboundStatus(id: staged.id, status: .beamed)
-                            } catch {
-                                NSLog("[StatusItemController] Paste image beam error: %@", error.localizedDescription)
-                                if let id = stagedId {
-                                    self.stagingManager.updateOutboundStatus(id: id, status: .failed)
-                                }
-                            }
-                        }
-                        return
+                        _ = try await self.transportManager.sendFile(fileURL: staged.fileURL, type: "screenshot")
+                        self.stagingManager.updateOutboundStatus(id: staged.id, status: .beamed)
                     } catch {
-                        NSLog("[StatusItemController] Failed to write pasted image: %@", error.localizedDescription)
+                        NSLog("[StatusItemController] Paste image beam error: %@", error.localizedDescription)
+                        if let id = stagedId {
+                            self.stagingManager.updateOutboundStatus(id: id, status: .failed)
+                        }
                     }
                 }
+                return
             }
         }
         

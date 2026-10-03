@@ -37,7 +37,7 @@ public final class ThumbnailProvider: @unchecked Sendable {
             
             // Check if file is directly loadable image
             let ext = url.pathExtension.lowercased()
-            if ["png", "jpg", "jpeg", "webp", "gif", "tiff"].contains(ext) {
+            if ["png", "jpg", "jpeg", "webp", "gif", "tiff", "heic", "heif"].contains(ext) {
                 if let image = NSImage(contentsOf: url) {
                     let resized = self.resizeImage(image, targetSize: targetSize)
                     self.cache.setObject(resized, forKey: key as NSString, cost: self.cost(for: resized))

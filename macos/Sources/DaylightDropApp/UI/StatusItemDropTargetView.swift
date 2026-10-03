@@ -12,16 +12,28 @@ public final class StatusItemDropTargetView: NSView {
     private var springOpenWorkItem: DispatchWorkItem?
     public private(set) var isHoveringDrag: Bool = false
     
+    private static let registeredTypes: [NSPasteboard.PasteboardType] = [
+        .fileURL,
+        .string,
+        NSPasteboard.PasteboardType("com.apple.pasteboard.promised-file-url"),
+        NSPasteboard.PasteboardType("NSFilePromiseReceiver"),
+        .png,
+        .tiff,
+        NSPasteboard.PasteboardType("public.heic"),
+        NSPasteboard.PasteboardType("public.heif"),
+        NSPasteboard.PasteboardType("public.jpeg")
+    ]
+    
     public init(targetButton: NSStatusBarButton) {
         self.targetButton = targetButton
         super.init(frame: targetButton.bounds)
         self.autoresizingMask = [.width, .height]
-        self.registerForDraggedTypes([.fileURL, .string])
+        self.registerForDraggedTypes(Self.registeredTypes)
     }
     
     public required init?(coder: NSCoder) {
         super.init(coder: coder)
-        self.registerForDraggedTypes([.fileURL, .string])
+        self.registerForDraggedTypes(Self.registeredTypes)
     }
     
     // MARK: - Normal Mouse Click
@@ -74,6 +86,8 @@ public final class StatusItemDropTargetView: NSView {
     
     public override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         let pasteboard = sender.draggingPasteboard
+        
+        // 1. Files from Finder
         if let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: nil) as? [URL] {
             let fileURLs = urls.filter { $0.isFileURL }
             if !fileURLs.isEmpty {
@@ -81,6 +95,42 @@ public final class StatusItemDropTargetView: NSView {
             }
         }
         
+        // 2. File promises (Photos.app)
+        if let receivers = pasteboard.readObjects(forClasses: [NSFilePromiseReceiver.self], options: nil) as? [NSFilePromiseReceiver], !receivers.isEmpty {
+            cancelSpringOpenTimer()
+            isHoveringDrag = false
+            let outgoingDir = StagingManager.shared.outgoingDirectory
+            for receiver in receivers {
+                receiver.receivePromisedFiles(atDestination: outgoingDir, options: [:], operationQueue: .main) { [weak self] fileURL, error in
+                    if error == nil {
+                        _ = self?.simulateDrop(urls: [fileURL])
+                    }
+                }
+            }
+            return true
+        }
+        
+        // 3. Raw Image Data on drag pasteboard (HEIC, JPEG, PNG, TIFF)
+        let imgTypes: [(NSPasteboard.PasteboardType, String)] = [
+            (NSPasteboard.PasteboardType("public.heic"), "heic"),
+            (NSPasteboard.PasteboardType("public.heif"), "heif"),
+            (NSPasteboard.PasteboardType("public.jpeg"), "jpg"),
+            (.png, "png"),
+            (.tiff, "tiff")
+        ]
+        for (pbType, ext) in imgTypes {
+            if let data = pasteboard.data(forType: pbType) {
+                cancelSpringOpenTimer()
+                isHoveringDrag = false
+                let df = DateFormatter()
+                df.dateFormat = "yyyyMMdd_HHmmss"
+                let filename = "dropped_\(df.string(from: Date()))_\(UUID().uuidString.prefix(6)).\(ext)"
+                let staged = StagingManager.shared.stageOutboundData(data: data, filename: filename, type: .screenshot)
+                return simulateDrop(urls: [staged.fileURL])
+            }
+        }
+        
+        // 4. String / text
         if let string = pasteboard.string(forType: .string), !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             cancelSpringOpenTimer()
             isHoveringDrag = false

@@ -54,7 +54,7 @@ object ThumbnailHelper {
             val bitmap = try {
                 val ext = file.extension.lowercase(Locale.US)
                 when {
-                    ext in listOf("png", "jpg", "jpeg", "webp") -> {
+                    ext in listOf("png", "jpg", "jpeg", "webp", "heic", "heif") -> {
                         decodeSampledBitmapFromFile(file, targetWidth, targetHeight)
                     }
                     ext == "pdf" -> {

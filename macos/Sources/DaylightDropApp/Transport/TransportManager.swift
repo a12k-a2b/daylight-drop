@@ -196,7 +196,7 @@ public final class TransportManager: @unchecked Sendable {
             let health = try await client.checkHealth(host: "127.0.0.1", port: ProtocolConstants.androidPort, timeout: 1.0)
             updateUsbHealthState(isHealthy: health.status == "ok")
         } catch {
-            let attached = adbTracker.connectedSerials
+            let attached = adbTracker.refreshDevices()
             if !attached.isEmpty {
                 for serial in attached {
                     adbTracker.setupTunnel(serial: serial)
@@ -238,13 +238,29 @@ public final class TransportManager: @unchecked Sendable {
         guard let endpoint = targetEndpoint else {
             throw HTTPClientError.noPeerAvailable
         }
-        return try await client.sendDrop(
-            fileURL: fileURL,
-            type: type,
-            origin: localDeviceId,
-            targetHost: endpoint.host,
-            targetPort: endpoint.port
-        )
+        
+        do {
+            return try await client.sendDrop(
+                fileURL: fileURL,
+                type: type,
+                origin: localDeviceId,
+                targetHost: endpoint.host,
+                targetPort: endpoint.port
+            )
+        } catch {
+            NSLog("[TransportManager] sendDrop failed to %@:%d (%@) — re-probing and retrying", endpoint.host, endpoint.port, error.localizedDescription)
+            await performHeartbeatProbe()
+            guard let retryEndpoint = resolveTargetEndpoint() else {
+                throw error
+            }
+            return try await client.sendDrop(
+                fileURL: fileURL,
+                type: type,
+                origin: localDeviceId,
+                targetHost: retryEndpoint.host,
+                targetPort: retryEndpoint.port
+            )
+        }
     }
     
     public func sendText(text: String, type: String = "prompt") async throws -> String {

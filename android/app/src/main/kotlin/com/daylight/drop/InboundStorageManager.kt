@@ -283,6 +283,8 @@ class InboundStorageManager(
 
     fun getMimeType(file: File): String {
         val extension = file.extension.lowercase(Locale.US)
+        if (extension == "heic") return "image/heic"
+        if (extension == "heif") return "image/heif"
         return MimeTypeMap.getSingleton()?.getMimeTypeFromExtension(extension) ?: "application/octet-stream"
     }
 

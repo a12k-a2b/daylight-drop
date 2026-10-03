@@ -1,13 +1,176 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 import DaylightDropTransport
+
+/// Helper for handling cross-app drag & drop (Finder file URLs, Apple Photos file promises, raw HEIC/JPEG data).
+public struct DropItemHandler {
+    public static let supportedDropTypes: [UTType] = [
+        .fileURL,
+        .image,
+        .heic,
+        .heif,
+        .jpeg,
+        .png,
+        .tiff,
+        .pdf,
+        .text,
+        .plainText,
+        .data,
+        .item
+    ]
+    
+    public typealias DropCompletion = @MainActor @Sendable ([URL]) -> Void
+    
+    public static func handleDroppedProviders(
+        _ providers: [NSItemProvider],
+        stagingManager: StagingManager = .shared,
+        onComplete: DropCompletion? = nil
+    ) -> Bool {
+        guard !providers.isEmpty else { return false }
+        
+        for provider in providers {
+            // 1. File Promise (Photos.app, Safari downloads, Mail attachments)
+            if provider.hasItemConformingToTypeIdentifier("com.apple.pasteboard.promised-file-url") {
+                provider.loadItem(forTypeIdentifier: "com.apple.pasteboard.promised-file-url", options: nil) { item, error in
+                    if let receiver = item as? NSFilePromiseReceiver {
+                        let outgoingDir = stagingManager.outgoingDirectory
+                        receiver.receivePromisedFiles(atDestination: outgoingDir, options: [:], operationQueue: .main) { fileURL, error in
+                            if error == nil {
+                                Task { @MainActor in
+                                    stageAndBeam(urls: [fileURL], stagingManager: stagingManager, onComplete: onComplete)
+                                }
+                            }
+                        }
+                    }
+                }
+                continue
+            }
+            
+            // 2. Standard File URL (Finder, Desktop, etc.)
+            if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
+                provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, error in
+                    var targetURL: URL? = nil
+                    if let url = item as? URL {
+                        targetURL = url
+                    } else if let data = item as? Data, let url = URL(dataRepresentation: data, relativeTo: nil) {
+                        targetURL = url
+                    } else if let str = item as? String, let url = URL(string: str) {
+                        targetURL = url
+                    }
+                    
+                    if let url = targetURL, url.isFileURL {
+                        Task { @MainActor in
+                            stageAndBeam(urls: [url], stagingManager: stagingManager, onComplete: onComplete)
+                        }
+                    }
+                }
+                continue
+            }
+            
+            // 3. Raw Image Data (HEIC, JPEG, PNG, TIFF, WebP, etc.)
+            let candidateImageUTTypes = [
+                UTType.heic,
+                UTType.heif,
+                UTType.jpeg,
+                UTType.png,
+                UTType.tiff,
+                UTType.gif,
+                UTType.webP,
+                UTType.image
+            ]
+            var matchedImage = false
+            for imgType in candidateImageUTTypes {
+                if provider.hasItemConformingToTypeIdentifier(imgType.identifier) {
+                    matchedImage = true
+                    provider.loadDataRepresentation(forTypeIdentifier: imgType.identifier) { data, error in
+                        guard let data = data else { return }
+                        let ext = imgType.preferredFilenameExtension ?? "png"
+                        let df = DateFormatter()
+                        df.dateFormat = "yyyyMMdd_HHmmss"
+                        let filename = "dropped_\(df.string(from: Date()))_\(UUID().uuidString.prefix(6)).\(ext)"
+                        let staged = stagingManager.stageOutboundData(data: data, filename: filename, type: .screenshot)
+                        Task { @MainActor in
+                            stageAndBeam(urls: [staged.fileURL], stagingManager: stagingManager, onComplete: onComplete)
+                        }
+                    }
+                    break
+                }
+            }
+            if matchedImage { continue }
+            
+            // 4. Fallback URL object
+            if provider.canLoadObject(ofClass: URL.self) {
+                _ = provider.loadObject(ofClass: URL.self) { url, error in
+                    if let url = url, url.isFileURL {
+                        Task { @MainActor in
+                            stageAndBeam(urls: [url], stagingManager: stagingManager, onComplete: onComplete)
+                        }
+                    }
+                }
+                continue
+            }
+            
+            // 5. Text / String dropped
+            if provider.canLoadObject(ofClass: String.self) {
+                _ = provider.loadObject(ofClass: String.self) { str, error in
+                    guard let text = str, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+                    DispatchQueue.main.async {
+                        let staged = stagingManager.stageOutboundPrompt(prompt: text)
+                        stagingManager.updateOutboundStatus(id: staged.id, status: .beaming)
+                        Task {
+                            do {
+                                _ = try await TransportManager.shared.sendText(text: text, type: "clipboard")
+                                stagingManager.updateOutboundStatus(id: staged.id, status: .beamed)
+                            } catch {
+                                stagingManager.updateOutboundStatus(id: staged.id, status: .failed)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        return true
+    }
+    
+    @MainActor
+    private static func stageAndBeam(
+        urls: [URL],
+        stagingManager: StagingManager,
+        onComplete: DropCompletion?
+    ) {
+        if let onComplete = onComplete {
+            onComplete(urls)
+        } else {
+            for url in urls {
+                Task {
+                    var stagedId: UUID? = nil
+                    do {
+                        let staged = try stagingManager.stageOutboundFile(url: url)
+                        stagedId = staged.id
+                        stagingManager.updateOutboundStatus(id: staged.id, status: .beaming)
+                        let inferType = stagingManager.inferType(url: url).rawValue
+                        _ = try await TransportManager.shared.sendFile(fileURL: staged.fileURL, type: inferType)
+                        stagingManager.updateOutboundStatus(id: staged.id, status: .beamed)
+                    } catch {
+                        NSLog("[DropItemHandler] Error sending file: %@", error.localizedDescription)
+                        if let id = stagedId {
+                            stagingManager.updateOutboundStatus(id: id, status: .failed)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 /// "From Mac" Outbound Shelf displaying persistent drop zone and history of outbound files beamed to Daylight.
 public struct OutboundShelfView: View {
     @ObservedObject var stagingManager: StagingManager
-    public var onFileDropped: (([URL]) -> Void)?
+    public var onFileDropped: DropItemHandler.DropCompletion?
     
-    public init(stagingManager: StagingManager = .shared, onFileDropped: (([URL]) -> Void)? = nil) {
+    public init(stagingManager: StagingManager = .shared, onFileDropped: DropItemHandler.DropCompletion? = nil) {
         self.stagingManager = stagingManager
         self.onFileDropped = onFileDropped
     }
@@ -52,10 +215,8 @@ public struct OutboundShelfView: View {
                     )
             )
             .padding(.horizontal, 12)
-            .dropDestination(for: URL.self) { items, location in
-                guard !items.isEmpty else { return false }
-                handleDrop(urls: items)
-                return true
+            .onDrop(of: DropItemHandler.supportedDropTypes, isTargeted: nil) { providers in
+                DropItemHandler.handleDroppedProviders(providers, stagingManager: stagingManager, onComplete: handleDrop)
             }
             .frame(height: 132)
         }
@@ -72,7 +233,8 @@ public struct OutboundShelfView: View {
                         let staged = try stagingManager.stageOutboundFile(url: url)
                         stagedId = staged.id
                         stagingManager.updateOutboundStatus(id: staged.id, status: .beaming)
-                        _ = try await TransportManager.shared.sendFile(fileURL: staged.fileURL)
+                        let inferType = stagingManager.inferType(url: url).rawValue
+                        _ = try await TransportManager.shared.sendFile(fileURL: staged.fileURL, type: inferType)
                         stagingManager.updateOutboundStatus(id: staged.id, status: .beamed)
                     } catch {
                         NSLog("[OutboundShelfView] Error sending file: %@", error.localizedDescription)
@@ -89,9 +251,9 @@ public struct OutboundShelfView: View {
 /// Persistent dashed drop target card anchored in the outbound shelf.
 public struct PersistentDropZoneCard: View {
     @State private var isTargeted: Bool = false
-    public let onDrop: ([URL]) -> Void
+    public let onDrop: DropItemHandler.DropCompletion?
     
-    public init(onDrop: @escaping ([URL]) -> Void) {
+    public init(onDrop: DropItemHandler.DropCompletion? = nil) {
         self.onDrop = onDrop
     }
     
@@ -116,12 +278,8 @@ public struct PersistentDropZoneCard: View {
                     style: StrokeStyle(lineWidth: isTargeted ? 2.0 : 1.2, dash: [4, 4])
                 )
         )
-        .dropDestination(for: URL.self) { items, location in
-            guard !items.isEmpty else { return false }
-            onDrop(items)
-            return true
-        } isTargeted: { targeted in
-            isTargeted = targeted
+        .onDrop(of: DropItemHandler.supportedDropTypes, isTargeted: $isTargeted) { providers in
+            DropItemHandler.handleDroppedProviders(providers, stagingManager: .shared, onComplete: onDrop)
         }
     }
 }

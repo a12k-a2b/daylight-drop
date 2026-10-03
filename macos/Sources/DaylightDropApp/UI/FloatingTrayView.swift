@@ -198,7 +198,8 @@ public struct FloatingTrayView: View {
                             let staged = try stagingManager.stageOutboundFile(url: url)
                             stagedId = staged.id
                             stagingManager.updateOutboundStatus(id: staged.id, status: .beaming)
-                            _ = try await TransportManager.shared.sendFile(fileURL: staged.fileURL)
+                            let inferType = stagingManager.inferType(url: url).rawValue
+                            _ = try await TransportManager.shared.sendFile(fileURL: staged.fileURL, type: inferType)
                             stagingManager.updateOutboundStatus(id: staged.id, status: .beamed)
                         } catch {
                             NSLog("[FloatingTrayView] Cmd+V file beam error: %@", error.localizedDescription)
@@ -228,11 +229,20 @@ public struct FloatingTrayView: View {
             }
         }
         
-        // 2. Copied Image Data (PNG/TIFF with genuine PNG transcoding)
+        // 2. Copied Image Data (HEIC, HEIF, JPEG, PNG, TIFF)
         var imageData: Data? = nil
         var imageExtension = "png"
         
-        if let png = pb.data(forType: .png) {
+        if let heic = pb.data(forType: NSPasteboard.PasteboardType("public.heic")) {
+            imageData = heic
+            imageExtension = "heic"
+        } else if let heif = pb.data(forType: NSPasteboard.PasteboardType("public.heif")) {
+            imageData = heif
+            imageExtension = "heif"
+        } else if let jpeg = pb.data(forType: NSPasteboard.PasteboardType("public.jpeg")) {
+            imageData = jpeg
+            imageExtension = "jpg"
+        } else if let png = pb.data(forType: .png) {
             imageData = png
             imageExtension = "png"
         } else if let tiff = pb.data(forType: .tiff) {
@@ -257,7 +267,7 @@ public struct FloatingTrayView: View {
             
             Task {
                 do {
-                    _ = try await TransportManager.shared.sendFile(fileURL: staged.fileURL, type: "image")
+                    _ = try await TransportManager.shared.sendFile(fileURL: staged.fileURL, type: "screenshot")
                     stagingManager.updateOutboundStatus(id: staged.id, status: .beamed)
                 } catch {
                     NSLog("[FloatingTrayView] Cmd+V image beam error: %@", error.localizedDescription)

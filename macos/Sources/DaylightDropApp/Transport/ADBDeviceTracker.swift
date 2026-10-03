@@ -247,6 +247,17 @@ public final class ADBDeviceTracker: @unchecked Sendable {
         }
     }
     
+    @discardableResult
+    public func refreshDevices() -> Set<String> {
+        let result = commandExecutor(["devices"])
+        if result.code == 0 {
+            handleDeviceListUpdate(result.output)
+        }
+        lock.lock()
+        defer { lock.unlock() }
+        return connectedSerials
+    }
+    
     public func setupTunnel(serial: String) {
         // 0. Remove stale tunnels first
         _ = commandExecutor(["-s", serial, "forward", "--remove", "tcp:\(ProtocolConstants.androidPort)"])
