@@ -176,6 +176,21 @@ class InboundStorageManager(
         if (!payload.origin.isNullOrEmpty()) {
             PeerTargetManager.setMacDeviceId(payload.origin)
         }
+        // Store in memory for immediate code-block presentation in MainActivity
+        PeerTargetManager.latestReceivedText = payload.text
+
+        scope.launch(Dispatchers.IO) {
+            // Also persist as a text/prompt file in incoming storage
+            try {
+                val prefix = if (payload.type == "prompt") "prompt" else "note"
+                val textFile = File(incomingDir, "${prefix}_${System.currentTimeMillis()}.txt")
+                textFile.writeText(payload.text)
+                indexAndNotifyFile(textFile, "text")
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to persist text file: ${e.message}")
+            }
+        }
+
         scope.launch(Dispatchers.Main) {
             // 1. Update Android System Clipboard
             try {

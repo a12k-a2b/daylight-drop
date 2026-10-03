@@ -129,6 +129,8 @@ public struct PersistentDropZoneCard: View {
 public struct OutboundCardView: View {
     let item: StagedItem
     @State private var thumbnail: NSImage? = nil
+    @State private var isHovered: Bool = false
+    @State private var copiedFeedback: Bool = false
     
     public init(item: StagedItem) {
         self.item = item
@@ -154,12 +156,14 @@ public struct OutboundCardView: View {
                     Image(systemName: "doc.richtext")
                         .font(.system(size: 24))
                         .foregroundColor(SolOSTokens.os400)
-                } else if item.type == .prompt {
+                } else if item.type == .prompt || item.type == .note || item.type == .text {
                     Text(item.previewText ?? item.filename)
-                        .font(.system(size: 9))
-                        .foregroundColor(SolOSTokens.os400)
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundColor(SolOSTokens.os900)
                         .lineLimit(3)
                         .padding(4)
+                        .background(SolOSTokens.os150)
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
                 } else {
                     Image(systemName: "doc")
                         .font(.system(size: 24))
@@ -192,6 +196,49 @@ public struct OutboundCardView: View {
                         Spacer()
                     }
                     Spacer()
+                }
+                // Action buttons overlay on hover
+                if isHovered || copiedFeedback {
+                    VStack {
+                        HStack(spacing: 3) {
+                            Button(action: { NSWorkspace.shared.open(item.fileURL) }) {
+                                Image(systemName: "arrow.up.right.square")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundColor(SolOSTokens.os0)
+                                    .padding(4)
+                                    .background(SolOSTokens.os900.opacity(0.85))
+                                    .clipShape(Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .help("Open in default app")
+                            
+                            Spacer()
+                            
+                            Button(action: shareItem) {
+                                Image(systemName: "square.and.arrow.up")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundColor(SolOSTokens.os0)
+                                    .padding(4)
+                                    .background(SolOSTokens.os900.opacity(0.85))
+                                    .clipShape(Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .help("Share...")
+                            
+                            Button(action: copyToClipboard) {
+                                Image(systemName: copiedFeedback ? "checkmark" : "doc.on.doc")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundColor(SolOSTokens.os0)
+                                    .padding(4)
+                                    .background(SolOSTokens.os900.opacity(0.85))
+                                    .clipShape(Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .help("Copy to clipboard")
+                        }
+                        .padding(4)
+                        Spacer()
+                    }
                 }
             }
             .frame(width: 108, height: 68)
@@ -226,10 +273,66 @@ public struct OutboundCardView: View {
         .clipShape(RoundedRectangle(cornerRadius: SolOSTokens.cornerRadiusMedium))
         .overlay(
             RoundedRectangle(cornerRadius: SolOSTokens.cornerRadiusMedium)
-                .stroke(SolOSTokens.os100, lineWidth: 1)
+                .stroke(isHovered ? SolOSTokens.os900 : SolOSTokens.os100, lineWidth: 1)
         )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            NSWorkspace.shared.open(item.fileURL)
+        }
+        .contextMenu {
+            Button("Open in Default App") {
+                NSWorkspace.shared.open(item.fileURL)
+            }
+            Button("Copy to Clipboard") {
+                copyToClipboard()
+            }
+            Button("Share...") {
+                shareItem()
+            }
+            Divider()
+            Button("Show in Finder") {
+                NSWorkspace.shared.activateFileViewerSelecting([item.fileURL])
+            }
+        }
+        .onHover { hovering in
+            isHovered = hovering
+        }
         .onAppear {
             loadThumbnail()
+        }
+    }
+    
+    private func shareItem() {
+        let picker = NSSharingServicePicker(items: [item.fileURL])
+        if let window = NSApp.keyWindow, let contentView = window.contentView {
+            picker.show(relativeTo: NSRect(x: 0, y: 0, width: 100, height: 100), of: contentView, preferredEdge: .minY)
+        }
+    }
+    
+    private func copyToClipboard() {
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        
+        let originType = NSPasteboard.PasteboardType("com.daylight.drop.origin")
+        let origin = item.origin ?? "mac_desktop"
+        
+        let itemProvider = NSPasteboardItem()
+        itemProvider.setString(origin, forType: originType)
+        
+        if item.type == .screenshot || item.type == .pdf || item.type == .file {
+            itemProvider.setString(item.fileURL.absoluteString, forType: .fileURL)
+            pb.writeObjects([itemProvider, item.fileURL as NSURL])
+        } else if let preview = item.previewText {
+            itemProvider.setString(preview, forType: .string)
+            pb.writeObjects([itemProvider])
+        } else if let content = try? String(contentsOf: item.fileURL) {
+            itemProvider.setString(content, forType: .string)
+            pb.writeObjects([itemProvider])
+        }
+        
+        copiedFeedback = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            copiedFeedback = false
         }
     }
     

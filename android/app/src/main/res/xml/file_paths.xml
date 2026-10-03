@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <external-path name="external_root" path="." />
+    <external-path name="download_files" path="Download" />
+    <external-path name="daylight_drop_files" path="Download/DaylightDrop" />
+</paths>

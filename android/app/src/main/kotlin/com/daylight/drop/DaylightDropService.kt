@@ -134,6 +134,8 @@ class DaylightDropService : Service() {
     }
 
     private fun initSubsystems() {
+        TransferHistoryManager.init(applicationContext)
+
         val deviceId = "dc1-" + UUID.randomUUID().toString().substring(0, 8)
         transportManager = AndroidTransportManager(
             context = applicationContext,
@@ -155,6 +157,8 @@ class DaylightDropService : Service() {
             scope = serviceScope,
             onScreenshotDispatched = { file, hash ->
                 Log.i(TAG, "Screenshot dispatched: ${file.name} ($hash)")
+                TransferHistoryManager.recordSentItem(file, "screenshot")
+                PeerTargetManager.notifyTransfersUpdated()
             }
         )
 
@@ -163,6 +167,7 @@ class DaylightDropService : Service() {
             acquireTransferWakeLock(60_000L)
             try {
                 inboundStorageManager.handleFileReceived(transferId, filename, type, file, sha256)
+                PeerTargetManager.notifyTransfersUpdated()
             } finally {
                 releaseTransferWakeLock()
             }
@@ -170,6 +175,7 @@ class DaylightDropService : Service() {
 
         transportManager.server.onTextReceived = { payload ->
             inboundStorageManager.handleTextReceived(payload)
+            PeerTargetManager.notifyTransfersUpdated()
         }
 
         transportManager.onChannelChanged = { channel ->

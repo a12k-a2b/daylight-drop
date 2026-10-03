@@ -105,42 +105,60 @@ public struct InboundCardView: View {
                     Image(systemName: "doc.richtext")
                         .font(.system(size: 24))
                         .foregroundColor(SolOSTokens.os400)
-                } else if item.type == .note || item.type == .prompt {
+                } else if item.type == .note || item.type == .prompt || item.type == .text {
                     Text(item.previewText ?? item.filename)
-                        .font(.system(size: 9))
-                        .foregroundColor(SolOSTokens.os400)
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundColor(SolOSTokens.os900)
                         .lineLimit(3)
                         .padding(4)
+                        .background(SolOSTokens.os150)
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
                 } else {
                     Image(systemName: "doc")
                         .font(.system(size: 24))
                         .foregroundColor(SolOSTokens.os400)
                 }
                 
-                // Copy button and drag grip overlay on hover
+                // Action buttons and drag grip overlay on hover
                 if isHovered || copiedFeedback {
                     VStack {
-                        HStack {
-                            Image(systemName: "hand.draw")
-                                .font(.system(size: 8, weight: .bold))
-                                .foregroundColor(SolOSTokens.os0)
-                                .padding(4)
-                                .background(SolOSTokens.os900.opacity(0.85))
-                                .clipShape(Circle())
-                                .padding(4)
-                                .help("Drag out to Finder, Slack, or Obsidian")
-                            Spacer()
-                            Button(action: copyToClipboard) {
-                                Image(systemName: copiedFeedback ? "checkmark" : "doc.on.doc")
-                                    .font(.system(size: 10, weight: .bold))
+                        HStack(spacing: 3) {
+                            Button(action: { NSWorkspace.shared.open(item.fileURL) }) {
+                                Image(systemName: "arrow.up.right.square")
+                                    .font(.system(size: 9, weight: .bold))
                                     .foregroundColor(SolOSTokens.os0)
                                     .padding(4)
                                     .background(SolOSTokens.os900.opacity(0.85))
                                     .clipShape(Circle())
                             }
                             .buttonStyle(.plain)
-                            .padding(4)
+                            .help("Open in default app")
+                            
+                            Spacer()
+                            
+                            Button(action: shareItem) {
+                                Image(systemName: "square.and.arrow.up")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundColor(SolOSTokens.os0)
+                                    .padding(4)
+                                    .background(SolOSTokens.os900.opacity(0.85))
+                                    .clipShape(Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .help("Share...")
+                            
+                            Button(action: copyToClipboard) {
+                                Image(systemName: copiedFeedback ? "checkmark" : "doc.on.doc")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundColor(SolOSTokens.os0)
+                                    .padding(4)
+                                    .background(SolOSTokens.os900.opacity(0.85))
+                                    .clipShape(Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .help("Copy to clipboard")
                         }
+                        .padding(4)
                         Spacer()
                     }
                 }
@@ -179,11 +197,37 @@ public struct InboundCardView: View {
             RoundedRectangle(cornerRadius: SolOSTokens.cornerRadiusMedium)
                 .stroke(isHovered ? SolOSTokens.os900 : SolOSTokens.os100, lineWidth: 1)
         )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            NSWorkspace.shared.open(item.fileURL)
+        }
+        .contextMenu {
+            Button("Open in Default App") {
+                NSWorkspace.shared.open(item.fileURL)
+            }
+            Button("Copy to Clipboard") {
+                copyToClipboard()
+            }
+            Button("Share...") {
+                shareItem()
+            }
+            Divider()
+            Button("Show in Finder") {
+                NSWorkspace.shared.activateFileViewerSelecting([item.fileURL])
+            }
+        }
         .onHover { hovering in
             isHovered = hovering
         }
         .onAppear {
             loadThumbnail()
+        }
+    }
+    
+    private func shareItem() {
+        let picker = NSSharingServicePicker(items: [item.fileURL])
+        if let window = NSApp.keyWindow, let contentView = window.contentView {
+            picker.show(relativeTo: NSRect(x: 0, y: 0, width: 100, height: 100), of: contentView, preferredEdge: .minY)
         }
     }
     

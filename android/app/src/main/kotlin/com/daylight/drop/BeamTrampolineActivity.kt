@@ -98,19 +98,24 @@ class BeamTrampolineActivity : Activity() {
             return
         }
 
-        // Tier 2 Loop Suppression: ClipDescription Origin Check
-        val originTag = clip.description.extras?.getString(ProtocolConstants.ORIGIN_TAG)
-        val isMacOrigin = originTag != null && (
-            originTag == ProtocolConstants.ROLE_MAC ||
-            originTag == PeerTargetManager.getMacDeviceId() ||
-            originTag.startsWith("mac") ||
-            originTag != PeerTargetManager.getLocalDeviceId()
-        )
-        if (isMacOrigin) {
-            Log.i(TAG, "Suppressed echoing clipboard originating from Mac: $originTag")
-            showSolToast(getString(R.string.toast_clipboard_loop_suppressed))
-            finishWithZeroAnimation()
-            return
+        val triggerSource = intent.getStringExtra(EXTRA_TRIGGER_SOURCE) ?: "unknown"
+        val isExplicitUserAction = (triggerSource == "dashboard_button" || triggerSource == "tile" || triggerSource == "manual")
+
+        // Tier 2 Loop Suppression: ClipDescription Origin Check (only for automated background echoes, NOT user taps)
+        if (!isExplicitUserAction) {
+            val originTag = clip.description.extras?.getString(ProtocolConstants.ORIGIN_TAG)
+            val isMacOrigin = originTag != null && (
+                originTag == ProtocolConstants.ROLE_MAC ||
+                originTag == PeerTargetManager.getMacDeviceId() ||
+                originTag.startsWith("mac") ||
+                originTag != PeerTargetManager.getLocalDeviceId()
+            )
+            if (isMacOrigin) {
+                Log.i(TAG, "Suppressed echoing clipboard originating from Mac: $originTag")
+                showSolToast(getString(R.string.toast_clipboard_loop_suppressed))
+                finishWithZeroAnimation()
+                return
+            }
         }
 
         val item = clip.getItemAt(0)
@@ -125,7 +130,7 @@ class BeamTrampolineActivity : Activity() {
                 showSolToast(getString(R.string.toast_clipboard_unsupported))
             }
         } else if (!text.isNullOrEmpty()) {
-            beamTextAsync(text)
+            beamTextAsync(text, isExplicit = isExplicitUserAction)
         } else {
             Log.w(TAG, "Clipboard item contains neither text nor URI")
             showSolToast(getString(R.string.toast_clipboard_unsupported))
@@ -142,10 +147,10 @@ class BeamTrampolineActivity : Activity() {
      * Beams text payload to Mac via AndroidHttpClient.
      * Uses application-level CoroutineScope so the network call survives activity dismissal.
      */
-    private fun beamTextAsync(text: String) {
-        // Tier 3 Loop Suppression: SHA-256 LRU Cache Check
+    private fun beamTextAsync(text: String, isExplicit: Boolean = false) {
+        // Tier 3 Loop Suppression: SHA-256 LRU Cache Check (only for automated sync, not explicit user tap)
         val sha256 = LoopSuppressionEngine.computeSha256(text)
-        if (PeerTargetManager.loopSuppression.shouldSuppressHash(sha256)) {
+        if (!isExplicit && PeerTargetManager.loopSuppression.shouldSuppressHash(sha256)) {
             Log.i(TAG, "Suppressed duplicate clipboard text via SHA-256 LRU cache: $sha256")
             showSolToast(getString(R.string.toast_clipboard_duplicate_suppressed))
             return

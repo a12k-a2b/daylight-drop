@@ -22,6 +22,20 @@ object PeerTargetManager {
     private var macDeviceId: String = "mac_desktop"
     private var activeHost: String = "127.0.0.1" // Defaults to USB tunnel 127.0.0.1:8765
     private var isMacConnected: Boolean = true   // Optimistic for USB reverse tunnel
+    
+    var latestReceivedText: String? = null
+        set(value) {
+            field = value
+            if (value != null) {
+                onTextUpdated?.invoke(value)
+            }
+        }
+    var onTextUpdated: ((String) -> Unit)? = null
+    
+    var onTransfersUpdated: (() -> Unit)? = null
+    fun notifyTransfersUpdated() {
+        onTransfersUpdated?.invoke()
+    }
 
     val loopSuppression by lazy {
         DaylightDropService.instance?.transportManager?.loopSuppression

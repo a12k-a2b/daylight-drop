@@ -190,7 +190,7 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Card 3: Recent Transfers Shelf -->
+        <!-- Card 3: Recent Transfers & Code Block Shelf -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -207,14 +207,125 @@
                 android:orientation="vertical"
                 android:padding="16dp">
 
-                <TextView
-                    android:layout_width="wrap_content"
+                <!-- Pasted / Received Text Code Block Section -->
+                <LinearLayout
+                    android:id="@+id/layoutCodeBlock"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Recent Transfers"
-                    android:textColor="@color/os_900"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="8dp" />
+                    android:orientation="vertical"
+                    android:visibility="gone"
+                    android:layout_marginBottom="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="6dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="RECEIVED TEXT / SCRATCHPAD"
+                            android:textColor="@color/os_400"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:letterSpacing="0.05" />
+
+                        <Button
+                            android:id="@+id/btnCopyCode"
+                            android:layout_width="wrap_content"
+                            android:layout_height="32dp"
+                            android:text="Copy"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/os_0"
+                            android:backgroundTint="@color/os_900"
+                            app:cornerRadius="6dp"
+                            android:paddingLeft="10dp"
+                            android:paddingRight="10dp" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvCodeBlock"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@color/os_150"
+                        android:textColor="@color/os_900"
+                        android:fontFamily="monospace"
+                        android:textSize="12sp"
+                        android:padding="10dp"
+                        android:textIsSelectable="true"
+                        android:maxLines="8"
+                        android:scrollbars="vertical" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="12dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Transfer Streams"
+                        android:textColor="@color/os_900"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <!-- Two-Sided Tab Pill Switcher -->
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:background="@drawable/bg_pill_container"
+                        android:padding="2dp"
+                        android:gravity="center_vertical">
+
+                        <Button
+                            android:id="@+id/btnTabReceived"
+                            android:layout_width="wrap_content"
+                            android:layout_height="32dp"
+                            android:text="From Mac"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/os_0"
+                            android:backgroundTint="@color/os_900"
+                            app:cornerRadius="6dp"
+                            android:paddingLeft="12dp"
+                            android:paddingRight="12dp"
+                            android:minWidth="0dp"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp" />
+
+                        <Button
+                            android:id="@+id/btnTabSent"
+                            android:layout_width="wrap_content"
+                            android:layout_height="32dp"
+                            android:layout_marginStart="4dp"
+                            android:text="To Mac"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/os_800"
+                            android:backgroundTint="@color/os_150"
+                            app:cornerRadius="6dp"
+                            android:paddingLeft="12dp"
+                            android:paddingRight="12dp"
+                            android:minWidth="0dp"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Dynamic Clickable Files Container -->
+                <LinearLayout
+                    android:id="@+id/layoutRecentFilesContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
 
                 <TextView
                     android:id="@+id/tvRecentItems"
@@ -222,7 +333,8 @@
                     android:layout_height="wrap_content"
                     android:text="No transfers recorded yet."
                     android:textColor="@color/os_400"
-                    android:textSize="13sp" />
+                    android:textSize="13sp"
+                    android:paddingTop="4dp" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 

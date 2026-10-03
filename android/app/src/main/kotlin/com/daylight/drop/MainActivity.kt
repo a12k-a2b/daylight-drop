@@ -1,18 +1,36 @@
 package com.daylight.drop
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.os.Environment
 import android.util.Log
+import android.view.LayoutInflater
+import android.view.View
 import android.widget.Button
+import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.FileProvider
+import androidx.lifecycle.lifecycleScope
 import com.daylight.drop.transport.AndroidChannelType
 import com.daylight.drop.transport.ProtocolConstants
+import com.google.android.material.card.MaterialCardView
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 private const val TAG = "DaylightDropMain"
+
+enum class StreamTab {
+    RECEIVED, // From Mac
+    SENT      // To Mac
+}
 
 /**
  * MainActivity: Companion Dashboard for Daylight Drop on DC1 (Sol:OS).
@@ -38,12 +56,28 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnBeamClipboard: Button
     private lateinit var btnOpenStorage: Button
 
+    // Two-sided Stream Tabs
+    private lateinit var btnTabReceived: Button
+    private lateinit var btnTabSent: Button
+    private var currentTab = StreamTab.RECEIVED
+
+    // Code Block elements
+    private lateinit var layoutCodeBlock: LinearLayout
+    private lateinit var tvCodeBlock: TextView
+    private lateinit var btnCopyCode: Button
+
+    // Dynamic files list
+    private lateinit var layoutRecentFilesContainer: LinearLayout
+
+    private val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Initialize PeerTargetManager
+        // Initialize managers
         PeerTargetManager.init(applicationContext)
+        TransferHistoryManager.init(applicationContext)
 
         // Ensure foreground companion service is running
         DaylightDropService.start(this)
@@ -85,6 +119,15 @@ class MainActivity : AppCompatActivity() {
         tvRecentItems = findViewById(R.id.tvRecentItems)
         btnBeamClipboard = findViewById(R.id.btnBeamClipboard)
         btnOpenStorage = findViewById(R.id.btnOpenStorage)
+
+        btnTabReceived = findViewById(R.id.btnTabReceived)
+        btnTabSent = findViewById(R.id.btnTabSent)
+
+        layoutCodeBlock = findViewById(R.id.layoutCodeBlock)
+        tvCodeBlock = findViewById(R.id.tvCodeBlock)
+        btnCopyCode = findViewById(R.id.btnCopyCode)
+
+        layoutRecentFilesContainer = findViewById(R.id.layoutRecentFilesContainer)
     }
 
     private fun setupListeners() {
@@ -99,6 +142,75 @@ class MainActivity : AppCompatActivity() {
         btnOpenStorage.setOnClickListener {
             Log.i(TAG, "Open Storage clicked")
             openStorageDirectory()
+        }
+
+        btnTabReceived.setOnClickListener {
+            if (currentTab != StreamTab.RECEIVED) {
+                currentTab = StreamTab.RECEIVED
+                updateTabStyles()
+                refreshRecentDrops()
+            }
+        }
+
+        btnTabSent.setOnClickListener {
+            if (currentTab != StreamTab.SENT) {
+                currentTab = StreamTab.SENT
+                updateTabStyles()
+                refreshRecentDrops()
+            }
+        }
+
+        btnCopyCode.setOnClickListener {
+            val text = tvCodeBlock.text.toString()
+            if (text.isNotEmpty()) {
+                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                val clip = ClipData.newPlainText("Daylight Drop Text", text)
+                clipboard?.setPrimaryClip(clip)
+                btnCopyCode.text = "Copied!"
+                btnCopyCode.postDelayed({ btnCopyCode.text = "Copy" }, 1500)
+                Toast.makeText(this, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        PeerTargetManager.onTextUpdated = { text ->
+            runOnUiThread {
+                displayReceivedText(text)
+            }
+        }
+
+        PeerTargetManager.onTransfersUpdated = {
+            runOnUiThread {
+                refreshRecentDrops()
+            }
+        }
+
+        TransferHistoryManager.onHistoryChanged = {
+            runOnUiThread {
+                refreshRecentDrops()
+            }
+        }
+    }
+
+    private fun updateTabStyles() {
+        if (currentTab == StreamTab.RECEIVED) {
+            btnTabReceived.setBackgroundColor(getColor(R.color.os_900))
+            btnTabReceived.setTextColor(getColor(R.color.os_0))
+            btnTabSent.setBackgroundColor(getColor(R.color.os_150))
+            btnTabSent.setTextColor(getColor(R.color.os_800))
+        } else {
+            btnTabSent.setBackgroundColor(getColor(R.color.os_900))
+            btnTabSent.setTextColor(getColor(R.color.os_0))
+            btnTabReceived.setBackgroundColor(getColor(R.color.os_150))
+            btnTabReceived.setTextColor(getColor(R.color.os_800))
+        }
+    }
+
+    private fun displayReceivedText(text: String) {
+        if (text.trim().isNotEmpty()) {
+            tvCodeBlock.text = text
+            layoutCodeBlock.visibility = View.VISIBLE
+        } else {
+            layoutCodeBlock.visibility = View.GONE
         }
     }
 
@@ -139,47 +251,265 @@ class MainActivity : AppCompatActivity() {
             incomingDir.mkdirs()
         }
 
-        val files = incomingDir.listFiles()?.filter {
-            !it.name.startsWith(ProtocolConstants.TEMP_PREFIX) && !it.name.endsWith(ProtocolConstants.PART_SUFFIX)
-        }?.sortedByDescending { it.lastModified() }?.take(5)
-
-        if (files.isNullOrEmpty()) {
-            tvRecentItems.text = "No transfers recorded yet."
+        // 1. Check for latest text / prompt
+        val inMemoryText = PeerTargetManager.latestReceivedText
+        if (!inMemoryText.isNullOrEmpty()) {
+            displayReceivedText(inMemoryText)
         } else {
-            val sb = StringBuilder()
-            for (f in files) {
-                sb.append("• ").append(f.name).append(" (").append(formatBytes(f.length())).append(")\n")
+            val latestPromptFile = incomingDir.listFiles()?.filter {
+                it.name.startsWith("prompt_") || it.name.startsWith("note_")
+            }?.maxByOrNull { it.lastModified() }
+
+            if (latestPromptFile != null && latestPromptFile.exists()) {
+                val text = try { latestPromptFile.readText() } catch (_: Exception) { "" }
+                if (text.isNotEmpty()) {
+                    displayReceivedText(text)
+                } else {
+                    layoutCodeBlock.visibility = View.GONE
+                }
+            } else {
+                layoutCodeBlock.visibility = View.GONE
             }
-            tvRecentItems.text = sb.toString().trimEnd()
+        }
+
+        // 2. Fetch Two-Sided Streams
+        val receivedItems = TransferHistoryManager.getReceivedItems()
+        val sentItems = TransferHistoryManager.getSentItems()
+
+        // Update Tab Titles with Counts
+        btnTabReceived.text = "From Mac (${receivedItems.size})"
+        btnTabSent.text = "To Mac (${sentItems.size})"
+        updateTabStyles()
+
+        val activeItems = if (currentTab == StreamTab.RECEIVED) receivedItems else sentItems
+
+        layoutRecentFilesContainer.removeAllViews()
+
+        if (activeItems.isEmpty()) {
+            tvRecentItems.visibility = View.VISIBLE
+            tvRecentItems.text = if (currentTab == StreamTab.RECEIVED) {
+                "No files received from Mac yet. Drop files or prompts from Mac tray."
+            } else {
+                "No files sent to Mac yet. Take a screenshot or share via Share Sheet."
+            }
+        } else {
+            tvRecentItems.visibility = View.GONE
+            val inflater = LayoutInflater.from(this)
+
+            for (record in activeItems) {
+                val itemView = inflater.inflate(R.layout.item_recent_file, layoutRecentFilesContainer, false)
+                val card = itemView.findViewById<MaterialCardView>(R.id.cardRecentFile)
+                val tvName = itemView.findViewById<TextView>(R.id.tvFileName)
+                val tvDetails = itemView.findViewById<TextView>(R.id.tvFileDetails)
+                val tvSnippetLine = itemView.findViewById<TextView>(R.id.tvSnippetLine)
+
+                val ivThumbnail = itemView.findViewById<ImageView>(R.id.ivFileThumbnail)
+                val tvSnippetPreview = itemView.findViewById<TextView>(R.id.tvSnippetPreview)
+                val ivIcon = itemView.findViewById<ImageView>(R.id.ivFileIcon)
+
+                val btnOpen = itemView.findViewById<Button>(R.id.btnOpenFile)
+                val btnCopy = itemView.findViewById<Button>(R.id.btnCopyFile)
+                val btnShare = itemView.findViewById<Button>(R.id.btnShareFile)
+
+                val file = record.file
+                tvName.text = record.filename
+                val timeStr = timeFormat.format(Date(record.timestamp))
+                val directionTag = if (record.isOutbound) "To Mac" else "From Mac"
+                tvDetails.text = "${formatBytes(record.size)} • $timeStr • $directionTag"
+
+                // Show snippet line if present
+                if (!record.previewText.isNullOrEmpty()) {
+                    val oneLiner = record.previewText.replace("\n", " ").trim()
+                    tvSnippetLine.text = oneLiner
+                    tvSnippetLine.visibility = View.VISIBLE
+                } else {
+                    tvSnippetLine.visibility = View.GONE
+                }
+
+                // Thumbnail & Preview Resolution
+                val ext = file.extension.lowercase(Locale.US)
+                val isImage = ext in listOf("png", "jpg", "jpeg", "webp")
+                val isPdf = ext == "pdf"
+                val isText = ext in listOf("md", "txt", "json", "py", "kt", "xml", "csv")
+
+                if (isImage || isPdf) {
+                    ThumbnailHelper.loadThumbnail(
+                        context = this,
+                        file = file,
+                        imageView = ivThumbnail,
+                        targetWidth = 144,
+                        targetHeight = 144,
+                        scope = lifecycleScope,
+                        onSuccess = {
+                            ivThumbnail.visibility = View.VISIBLE
+                            tvSnippetPreview.visibility = View.GONE
+                            ivIcon.visibility = View.GONE
+                        },
+                        onFallback = {
+                            ivThumbnail.visibility = View.GONE
+                            tvSnippetPreview.visibility = View.GONE
+                            ivIcon.visibility = View.VISIBLE
+                            ivIcon.setImageResource(if (isImage) android.R.drawable.ic_menu_gallery else R.drawable.ic_drop_file)
+                        }
+                    )
+                } else if (isText) {
+                    ivThumbnail.visibility = View.GONE
+                    val previewText = record.previewText ?: try {
+                        file.bufferedReader().useLines { lines -> lines.take(4).joinToString("\n") }
+                    } catch (_: Exception) { "" }
+
+                    if (previewText.isNotEmpty()) {
+                        tvSnippetPreview.text = previewText
+                        tvSnippetPreview.visibility = View.VISIBLE
+                        ivIcon.visibility = View.GONE
+                    } else {
+                        tvSnippetPreview.visibility = View.GONE
+                        ivIcon.visibility = View.VISIBLE
+                        ivIcon.setImageResource(R.drawable.ic_drop_prompt)
+                    }
+                } else {
+                    ivThumbnail.visibility = View.GONE
+                    tvSnippetPreview.visibility = View.GONE
+                    ivIcon.visibility = View.VISIBLE
+                    ivIcon.setImageResource(R.drawable.ic_drop_file)
+                }
+
+                // 1. Open Button & Card Tap
+                val openClickListener = View.OnClickListener {
+                    Log.i(TAG, "Opening file: ${file.name}")
+                    openFile(file)
+                }
+                card.setOnClickListener(openClickListener)
+                btnOpen.setOnClickListener(openClickListener)
+
+                // 2. Copy Button
+                btnCopy.setOnClickListener {
+                    copyFileToClipboard(record, btnCopy)
+                }
+
+                // 3. Share Button
+                btnShare.setOnClickListener {
+                    shareFile(file)
+                }
+
+                layoutRecentFilesContainer.addView(itemView)
+            }
+        }
+    }
+
+    private fun copyFileToClipboard(record: TransferRecord, button: Button) {
+        val file = record.file
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        val ext = file.extension.lowercase(Locale.US)
+
+        try {
+            if (ext in listOf("md", "txt", "json", "py", "kt", "xml", "csv") || record.transferType in listOf("prompt", "clipboard", "note")) {
+                val text = if (!record.previewText.isNullOrEmpty() && file.length() < 100_000) {
+                    try { file.readText() } catch (_: Exception) { record.previewText }
+                } else {
+                    try { file.readText() } catch (_: Exception) { file.name }
+                }
+                val clip = ClipData.newPlainText(file.name, text)
+                clipboard?.setPrimaryClip(clip)
+            } else {
+                val uri = FileProvider.getUriForFile(this, "${packageName}.fileprovider", file)
+                val mimeType = getMimeType(file)
+                val clip = ClipData.newUri(contentResolver, file.name, uri)
+                clipboard?.setPrimaryClip(clip)
+            }
+
+            button.text = "Copied!"
+            button.postDelayed({ button.text = "Copy" }, 1500)
+            Toast.makeText(this, "Copied ${file.name} to clipboard", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to copy file to clipboard: ${file.name}", e)
+            Toast.makeText(this, "Failed to copy to clipboard", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun shareFile(file: File) {
+        try {
+            val uri = FileProvider.getUriForFile(this, "${packageName}.fileprovider", file)
+            val mimeType = getMimeType(file)
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = mimeType
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            startActivity(Intent.createChooser(shareIntent, "Share ${file.name}"))
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initiate share sheet for ${file.name}", e)
+            Toast.makeText(this, "Failed to open share sheet: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun openFile(file: File) {
+        try {
+            val uri = FileProvider.getUriForFile(this, "${packageName}.fileprovider", file)
+            val mimeType = getMimeType(file)
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, mimeType)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(Intent.createChooser(intent, "Open with"))
+        } catch (e: Exception) {
+            Log.w(TAG, "FileProvider intent failed, trying direct intent: ${e.message}")
+            try {
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    val rawUri = Uri.fromFile(file)
+                    setDataAndType(rawUri, getMimeType(file))
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                startActivity(intent)
+            } catch (e2: Exception) {
+                Log.e(TAG, "Failed to open file: ${file.name}", e2)
+                Toast.makeText(this, "No application found to open ${file.name}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun getMimeType(file: File): String {
+        return when (file.extension.lowercase(Locale.US)) {
+            "md", "markdown" -> "text/plain"
+            "txt" -> "text/plain"
+            "pdf" -> "application/pdf"
+            "png" -> "image/png"
+            "jpg", "jpeg" -> "image/jpeg"
+            "webp" -> "image/webp"
+            "json" -> "application/json"
+            "html" -> "text/html"
+            else -> "*/*"
         }
     }
 
     private fun openStorageDirectory() {
+        val incomingDir = File(ProtocolConstants.DEFAULT_ANDROID_INCOMING)
+        val uri = FileProvider.getUriForFile(this, "${packageName}.fileprovider", incomingDir)
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "resource/folder")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
         try {
-            val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(Uri.parse(ProtocolConstants.DEFAULT_ANDROID_INCOMING), "resource/folder")
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            }
             startActivity(intent)
         } catch (e: Exception) {
-            Log.w(TAG, "Folder view intent failed, opening standard storage intent", e)
+            Log.w(TAG, "No default folder viewer found: ${e.message}")
+            val fallbackIntent = Intent(Intent.ACTION_GET_CONTENT).apply {
+                type = "*/*"
+            }
             try {
-                val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
-                    type = "*/*"
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                }
-                startActivity(intent)
+                startActivity(fallbackIntent)
             } catch (e2: Exception) {
-                Log.e(TAG, "Failed to launch file picker", e2)
+                Toast.makeText(this, "Storage location: ${incomingDir.absolutePath}", Toast.LENGTH_LONG).show()
             }
         }
     }
 
     private fun formatBytes(bytes: Long): String {
-        if (bytes < 1024) return "$bytes B"
-        val kb = bytes / 1024.0
-        if (kb < 1024) return "%.1f KB".format(kb)
-        val mb = kb / 1024.0
-        return "%.1f MB".format(mb)
+        if (bytes <= 0) return "0 B"
+        val units = arrayOf("B", "KB", "MB", "GB")
+        val digitGroups = (Math.log10(bytes.toDouble()) / Math.log10(1024.0)).toInt()
+        val index = digitGroups.coerceIn(0, units.size - 1)
+        return "%.1f %s".format(Locale.US, bytes / Math.pow(1024.0, index.toDouble()), units[index])
     }
 }

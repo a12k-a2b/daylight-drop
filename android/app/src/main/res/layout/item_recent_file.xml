@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/cardRecentFile"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="5dp"
+    android:layout_marginBottom="5dp"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?android:attr/selectableItemBackground"
+    app:cardBackgroundColor="@color/os_0"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="0dp"
+    app:strokeColor="@color/os_100"
+    app:strokeWidth="1dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:padding="12dp">
+
+        <!-- Thumbnail Container -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            app:cardCornerRadius="6dp"
+            app:cardElevation="0dp"
+            app:strokeColor="@color/os_100"
+            app:strokeWidth="1dp"
+            app:cardBackgroundColor="@color/os_50">
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+
+                <!-- Image / PDF Thumbnail -->
+                <ImageView
+                    android:id="@+id/ivFileThumbnail"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="centerCrop"
+                    android:visibility="gone"
+                    android:contentDescription="File Thumbnail Preview" />
+
+                <!-- Text / Markdown Snippet Preview -->
+                <TextView
+                    android:id="@+id/tvSnippetPreview"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@color/os_150"
+                    android:textColor="@color/os_900"
+                    android:fontFamily="monospace"
+                    android:textSize="7sp"
+                    android:lineSpacingExtra="1dp"
+                    android:padding="4dp"
+                    android:maxLines="5"
+                    android:ellipsize="end"
+                    android:visibility="gone"
+                    tools:text="# Title\nFirst line of note\nSecond line..." />
+
+                <!-- Fallback Icon -->
+                <ImageView
+                    android:id="@+id/ivFileIcon"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_drop_file"
+                    app:tint="@color/os_400"
+                    android:contentDescription="File Icon" />
+            </FrameLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Metadata Info -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp">
+
+            <TextView
+                android:id="@+id/tvFileName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="filename.ext"
+                android:textColor="@color/os_900"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:singleLine="true"
+                android:ellipsize="middle" />
+
+            <TextView
+                android:id="@+id/tvFileDetails"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="2.7 KB • 8:26 PM • From Mac"
+                android:textColor="@color/os_400"
+                android:textSize="12sp"
+                android:layout_marginTop="2dp" />
+
+            <!-- Optional secondary snippet line -->
+            <TextView
+                android:id="@+id/tvSnippetLine"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Snippet preview..."
+                android:textColor="@color/os_400"
+                android:fontFamily="monospace"
+                android:textSize="11sp"
+                android:singleLine="true"
+                android:ellipsize="end"
+                android:visibility="gone"
+                android:layout_marginTop="3dp" />
+        </LinearLayout>
+
+        <!-- Action Buttons: Open, Copy, Share -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <!-- Open Button -->
+            <Button
+                android:id="@+id/btnOpenFile"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="Open"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/os_900"
+                android:backgroundTint="@color/os_150"
+                app:strokeColor="@color/os_200"
+                app:strokeWidth="1dp"
+                app:cornerRadius="6dp"
+                android:paddingLeft="10dp"
+                android:paddingRight="10dp"
+                android:minWidth="56dp" />
+
+            <!-- Copy Button -->
+            <Button
+                android:id="@+id/btnCopyFile"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_marginStart="6dp"
+                android:text="Copy"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/os_900"
+                android:backgroundTint="@color/os_150"
+                app:strokeColor="@color/os_200"
+                app:strokeWidth="1dp"
+                app:cornerRadius="6dp"
+                android:paddingLeft="10dp"
+                android:paddingRight="10dp"
+                android:minWidth="56dp" />
+
+            <!-- Share Button -->
+            <Button
+                android:id="@+id/btnShareFile"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_marginStart="6dp"
+                android:text="Share"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/os_0"
+                android:backgroundTint="@color/os_900"
+                app:cornerRadius="6dp"
+                android:paddingLeft="10dp"
+                android:paddingRight="10dp"
+                android:minWidth="56dp" />
+        </LinearLayout>
+
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>
