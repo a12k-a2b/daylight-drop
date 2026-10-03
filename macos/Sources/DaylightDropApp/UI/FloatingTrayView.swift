@@ -9,18 +9,22 @@ public struct FloatingTrayView: View {
     @ObservedObject var stagingManager: StagingManager
     @State private var scratchpadText: String = ""
     @State private var activeChannel: ChannelType? = nil
+    @State private var isFullTrayDropTargeted: Bool = false
     
     public var onQuit: (() -> Void)?
     public var onOpenFolder: (() -> Void)?
+    public var onToggleDropBar: (() -> Void)?
     
     public init(
         stagingManager: StagingManager = .shared,
         onQuit: (() -> Void)? = nil,
-        onOpenFolder: (() -> Void)? = nil
+        onOpenFolder: (() -> Void)? = nil,
+        onToggleDropBar: (() -> Void)? = nil
     ) {
         self.stagingManager = stagingManager
         self.onQuit = onQuit
         self.onOpenFolder = onOpenFolder
+        self.onToggleDropBar = onToggleDropBar
     }
     
     public var body: some View {
@@ -57,6 +61,14 @@ public struct FloatingTrayView: View {
                 )
         )
         .environment(\.colorScheme, .light)
+        .onDrop(of: DropItemHandler.supportedDropTypes, isTargeted: $isFullTrayDropTargeted) { providers in
+            DropItemHandler.handleDroppedProviders(providers, stagingManager: stagingManager, onComplete: nil)
+        }
+        .overlay {
+            if isFullTrayDropTargeted {
+                dropzoneFullOverlay
+            }
+        }
         .onKeyPress { keyPress in
             // F25: In-Tray Cmd + V Paste
             if keyPress.key == KeyEquivalent("v") && keyPress.modifiers.contains(.command) {
@@ -80,6 +92,58 @@ public struct FloatingTrayView: View {
         }
     }
     
+    private var dropzoneFullOverlay: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: SolOSTokens.cornerRadiusLarge)
+                .fill(SolOSTokens.os0.opacity(0.96))
+            
+            RoundedRectangle(cornerRadius: SolOSTokens.cornerRadiusLarge)
+                .strokeBorder(SolOSTokens.os900, style: StrokeStyle(lineWidth: 3, dash: [8, 6]))
+                .padding(6)
+            
+            VStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(SolOSTokens.os900)
+                        .frame(width: 64, height: 64)
+                    
+                    Image(systemName: "arrow.down.doc.fill")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(SolOSTokens.os0)
+                }
+                
+                VStack(spacing: 4) {
+                    Text("DROP ANYWHERE TO BEAM")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(SolOSTokens.os900)
+                        .tracking(1.0)
+                    
+                    Text("Release files to stream directly to Daylight Computer")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(SolOSTokens.os400)
+                }
+                
+                HStack(spacing: 6) {
+                    Text("Finder")
+                    Text("•")
+                    Text("Apple Photos")
+                    Text("•")
+                    Text("Desktop")
+                    Text("•")
+                    Text("Any file format")
+                }
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(SolOSTokens.os400)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(SolOSTokens.os150)
+                .clipShape(Capsule())
+            }
+        }
+        .transition(.opacity.combined(with: .scale(scale: 0.98)))
+        .animation(.spring(response: 0.22, dampingFraction: 0.8), value: isFullTrayDropTargeted)
+    }
+    
     private var headerView: some View {
         HStack(alignment: .center) {
             HStack(spacing: 6) {
@@ -98,8 +162,23 @@ public struct FloatingTrayView: View {
             // Connection status pill
             statusPillView
             
+            // Detach Floating Drop Bar (Dropzone style)
+            if let onToggleDropBar = onToggleDropBar {
+                Button(action: onToggleDropBar) {
+                    Image(systemName: "macwindow.on.rectangle")
+                        .font(.system(size: 12))
+                        .foregroundColor(SolOSTokens.os400)
+                }
+                .buttonStyle(.plain)
+                .help("Toggle Floating Drop Bar")
+            }
+            
             // Menu / Actions
             Menu {
+                Button("Toggle Floating Drop Bar") {
+                    onToggleDropBar?()
+                }
+                Divider()
                 Button("Open Incoming Folder") {
                     if let onOpenFolder = onOpenFolder {
                         onOpenFolder()

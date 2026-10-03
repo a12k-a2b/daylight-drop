@@ -19,7 +19,8 @@ public final class StatusItemController: NSObject {
         self.transportManager = transportManager
         
         // 1. Create NSStatusItem with autosaveName for persistent menu bar placement
-        self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        // Width 36.0 provides a generous touch target for drag-and-drop while remaining compact
+        self.statusItem = NSStatusBar.system.statusItem(withLength: 36.0)
         self.statusItem.autosaveName = "DaylightDrop"
         
         // 2. Create FloatingTrayPanel
@@ -50,12 +51,16 @@ public final class StatusItemController: NSObject {
             stagingManager: stagingManager,
             onQuit: { [weak self] in
                 self?.panel.hide()
+                FloatingDropBarPanel.shared.hide()
                 NSApp.terminate(nil)
             },
             onOpenFolder: { [weak self] in
                 if let dir = self?.stagingManager.incomingDirectory {
                     NSWorkspace.shared.open(dir)
                 }
+            },
+            onToggleDropBar: {
+                FloatingDropBarPanel.shared.toggle()
             }
         )
         let hostingView = NSHostingView(rootView: trayView)

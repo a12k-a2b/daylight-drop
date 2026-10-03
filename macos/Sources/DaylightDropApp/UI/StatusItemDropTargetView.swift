@@ -46,23 +46,41 @@ public final class StatusItemDropTargetView: NSView {
         }
     }
     
+    // MARK: - Visual Feedback on Drag Hover
+    
+    public override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        if isHoveringDrag {
+            let insetRect = bounds.insetBy(dx: 2, dy: 2)
+            let path = NSBezierPath(roundedRect: insetRect, xRadius: 4, yRadius: 4)
+            NSColor.labelColor.withAlphaComponent(0.12).setFill()
+            path.fill()
+            NSColor.labelColor.withAlphaComponent(0.8).setStroke()
+            path.lineWidth = 1.5
+            path.stroke()
+        }
+    }
+    
     // MARK: - Drag Destination & Spring Open (F24)
     
     @discardableResult
     public func simulateDragEntered() -> NSDragOperation {
         isHoveringDrag = true
+        needsDisplay = true
         scheduleSpringOpenTimer()
         return .copy
     }
     
     public func simulateDragExited() {
         isHoveringDrag = false
+        needsDisplay = true
         cancelSpringOpenTimer()
     }
     
     public func simulateDrop(urls: [URL]) -> Bool {
         cancelSpringOpenTimer()
         isHoveringDrag = false
+        needsDisplay = true
         guard !urls.isEmpty else { return false }
         onDrop?(urls)
         return true
@@ -150,7 +168,7 @@ public final class StatusItemDropTargetView: NSView {
         return false
     }
     
-    // MARK: - Spring Open Timer Handling (300ms)
+    // MARK: - Spring Open Timer Handling (20ms fast trigger)
     
     private func scheduleSpringOpenTimer() {
         cancelSpringOpenTimer()
@@ -160,7 +178,7 @@ public final class StatusItemDropTargetView: NSView {
             self.onSpringOpen?()
         }
         self.springOpenWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.300, execute: workItem)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.020, execute: workItem)
     }
     
     public func cancelSpringOpenTimer() {

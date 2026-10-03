@@ -189,20 +189,27 @@ public struct OutboundShelfView: View {
             }
             .padding(.horizontal, 12)
             
-            HStack(spacing: 8) {
-                // Fixed Persistent Drop Zone Card (never scrolls away)
-                PersistentDropZoneCard(onDrop: handleDrop)
-                    .frame(width: 96, height: 116)
-                
-                // Outbound items horizontal scroll
-                ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: 8) {
-                        ForEach(stagingManager.outboundItems) { item in
-                            OutboundCardView(item: item)
-                                .frame(width: 108, height: 116)
+            Group {
+                if stagingManager.outboundItems.isEmpty {
+                    FullWidthDropZoneBanner(onDrop: handleDrop)
+                        .frame(height: 114)
+                } else {
+                    HStack(spacing: 8) {
+                        // Fixed Persistent Drop Zone Card (never scrolls away)
+                        PersistentDropZoneCard(onDrop: handleDrop)
+                            .frame(width: 110, height: 114)
+                        
+                        // Outbound items horizontal scroll
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            LazyHStack(spacing: 8) {
+                                ForEach(stagingManager.outboundItems) { item in
+                                    OutboundCardView(item: item)
+                                        .frame(width: 108, height: 114)
+                                }
+                            }
+                            .padding(.vertical, 2)
                         }
                     }
-                    .padding(.vertical, 2)
                 }
             }
             .padding(8)
@@ -248,6 +255,62 @@ public struct OutboundShelfView: View {
     }
 }
 
+/// Full-width drop zone banner shown in the outbound shelf when no items are beamed yet.
+public struct FullWidthDropZoneBanner: View {
+    @State private var isTargeted: Bool = false
+    public let onDrop: DropItemHandler.DropCompletion?
+    
+    public init(onDrop: DropItemHandler.DropCompletion? = nil) {
+        self.onDrop = onDrop
+    }
+    
+    public var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: SolOSTokens.cornerRadiusMedium)
+                .fill(isTargeted ? SolOSTokens.os50 : SolOSTokens.os0)
+            
+            RoundedRectangle(cornerRadius: SolOSTokens.cornerRadiusMedium)
+                .strokeBorder(
+                    isTargeted ? SolOSTokens.os900 : SolOSTokens.os300,
+                    style: StrokeStyle(lineWidth: isTargeted ? 2.0 : 1.2, dash: [5, 4])
+                )
+            
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(isTargeted ? SolOSTokens.os900 : SolOSTokens.os150)
+                        .frame(width: 44, height: 44)
+                    
+                    Image(systemName: isTargeted ? "arrow.down.doc.fill" : "plus.circle.fill")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(isTargeted ? SolOSTokens.os0 : SolOSTokens.os900)
+                }
+                
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("DROP FILES HERE TO BEAM")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(SolOSTokens.os900)
+                        .tracking(0.6)
+                    
+                    Text("Drag from Finder, Photos, or Desktop • Or press ⌘V")
+                        .font(.system(size: 9.5))
+                        .foregroundColor(SolOSTokens.os400)
+                }
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(SolOSTokens.os300)
+            }
+            .padding(.horizontal, 14)
+        }
+        .onDrop(of: DropItemHandler.supportedDropTypes, isTargeted: $isTargeted) { providers in
+            DropItemHandler.handleDroppedProviders(providers, stagingManager: .shared, onComplete: onDrop)
+        }
+    }
+}
+
 /// Persistent dashed drop target card anchored in the outbound shelf.
 public struct PersistentDropZoneCard: View {
     @State private var isTargeted: Bool = false
@@ -259,16 +322,22 @@ public struct PersistentDropZoneCard: View {
     
     public var body: some View {
         VStack(spacing: 6) {
-            Image(systemName: isTargeted ? "arrow.down.doc.fill" : "plus")
-                .font(.system(size: 20, weight: .medium))
+            Image(systemName: isTargeted ? "arrow.down.doc.fill" : "plus.circle.fill")
+                .font(.system(size: 22, weight: .bold))
                 .foregroundColor(isTargeted ? SolOSTokens.os900 : SolOSTokens.os400)
             
-            Text("Drop Files\nto Beam")
-                .font(.system(size: 10, weight: .medium))
-                .foregroundColor(isTargeted ? SolOSTokens.os900 : SolOSTokens.os400)
-                .multilineTextAlignment(.center)
+            VStack(spacing: 1) {
+                Text("Drop to Beam")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(isTargeted ? SolOSTokens.os900 : SolOSTokens.os900)
+                
+                Text("Finder / Photos")
+                    .font(.system(size: 8))
+                    .foregroundColor(SolOSTokens.os400)
+            }
+            .multilineTextAlignment(.center)
         }
-        .frame(width: 92, height: 114)
+        .frame(width: 110, height: 114)
         .background(isTargeted ? SolOSTokens.os50 : SolOSTokens.os0)
         .clipShape(RoundedRectangle(cornerRadius: SolOSTokens.cornerRadiusMedium))
         .overlay(
