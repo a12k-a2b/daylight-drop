@@ -69,7 +69,8 @@ public struct FloatingDropBarView: View {
     @State private var isTargeted: Bool = false
     public var onClose: (() -> Void)?
     
-    public init(onClose: (() -> Void)? = nil) {
+    public init(initialTargeted: Bool = false, onClose: (() -> Void)? = nil) {
+        self._isTargeted = State(initialValue: initialTargeted)
         self.onClose = onClose
     }
     

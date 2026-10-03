@@ -17,11 +17,15 @@ public struct FloatingTrayView: View {
     
     public init(
         stagingManager: StagingManager = .shared,
+        initialText: String = "",
+        initialDropTargeted: Bool = false,
         onQuit: (() -> Void)? = nil,
         onOpenFolder: (() -> Void)? = nil,
         onToggleDropBar: (() -> Void)? = nil
     ) {
         self.stagingManager = stagingManager
+        self._scratchpadText = State(initialValue: initialText)
+        self._isFullTrayDropTargeted = State(initialValue: initialDropTargeted)
         self.onQuit = onQuit
         self.onOpenFolder = onOpenFolder
         self.onToggleDropBar = onToggleDropBar

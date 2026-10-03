@@ -6,12 +6,34 @@ Daylight Drop provides an instant, private, peer-to-peer bridge between your Mac
 
 ---
 
+## 📸 Visual Showcase & Interface Walkthrough
+
+### 🍎 macOS Menu Bar Experience & Dropzone Shelf
+
+| Dual-Stream Menu Bar Tray | Full-Window Dropzone HUD | Pinned Floating Drop Bar |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/mac_tray_overview.png" width="280" alt="macOS Daylight Drop Menu Bar Tray" /> | <img src="docs/screenshots/mac_dropzone_overlay.png" width="280" alt="macOS Full-Tray Dropzone Overlay" /> | <img src="docs/screenshots/mac_floating_drop_bar.png" width="280" alt="macOS Detachable Floating Drop Bar" /> |
+| **Split Shelves & AI Scratchpad**<br>Horizontal streams with live thumbnails, quick copy, and $\text{Cmd}+\text{Enter}$ beam | **"Drop Anywhere to Beam"**<br>Instant spring-open HUD with 100% target area across the window | **Dropzone-Style Pinned Shelf**<br>340x76 draggable HUD target for rapid Finder/Photos dropping |
+
+---
+
+### ☀️ Daylight Computer DC1 Companion (Sol:OS 8-Bit Grayscale)
+
+| Inbound Stream ("From Mac") | Outbound Stream ("To Mac") |
+| :---: | :---: |
+| <img src="docs/screenshots/dc1_companion_dashboard.png" width="360" alt="Daylight DC1 Inbound Stream with Live HEIC Thumbnails" /> | <img src="docs/screenshots/dc1_to_mac_stream.png" width="360" alt="Daylight DC1 Outbound Stream and Screenshot Sync" /> |
+| **Active Inbound Dashboard & Integrations**<br>Native HEIC/image thumbnail decoding, Sol:OS action chips (Open, Copy, Share, Finder), and transport indicator | **Automatic Screenshot Sync & Outbound Stream**<br>Zero-tap MediaStore screenshot sync and outbound history with instant Sol:OS status |
+
+---
+
 ## 🌟 Key Highlights
 
 ### 🍎 macOS Menu Bar Companion
 - **Dual-Stream Shelf Interface**: Split visual shelves keeping inbound and outbound streams crystal clear:
   - **"From Daylight" Inbound Shelf**: Chronological stream of received screenshots, reading notes, PDFs, and text snippets with instant QuickLook thumbnail previews, one-click clipboard copying, and drag-out handles.
   - **"From Mac" Outbound Shelf**: Persistent drop zone and history of items queued or beamed to your Daylight tablet.
+- **Full-Window Dropzone Target ("Drop Anywhere to Beam")**: Dragging files anywhere over the opened tray triggers a high-contrast HUD dropzone target, eliminating small touch target friction.
+- **Detachable Floating Drop Bar HUD**: Dropzone-inspired 340x76 pinned shelf that stays on screen for rapid multi-file drops from Finder or Apple Photos without needing to keep the menu bar tray open.
 - **Drag-Hover Spring Open**: Dragging any file or folder from Finder toward the menu bar icon automatically springs the tray open. Drop directly into the tray to beam.
 - **In-Tray $\text{Cmd}+\text{V}$ Paste**: Paste files, images, or copied text directly into the open tray to immediately stage and beam them to DC1.
 - **Drag-Out Retention**: Drag received files out of the tray directly into Finder, Slack, Claude, or Obsidian without accidental tray dismissal.
@@ -23,6 +45,8 @@ Daylight Drop provides an instant, private, peer-to-peer bridge between your Mac
 ### ☀️ Daylight Computer DC1 Companion (Sol:OS / Android 13)
 - **Sol:OS 8-Bit Grayscale Tokens**: Strictly styled using official Daylight Sol:OS tokens (`--os-0` `#FFFFFF` to `--os-1000` `#000000`, amber accent `#9D9D9E`, yellow `#CECECE`, orange `#6C6C6D`) achieving WCAG 2.1 AAA contrast ($\ge 7.0:1$).
 - **Zero-EPD Display Compliance**: Optimized for Daylight's custom 60Hz/120Hz reflective LivePaper LCD. Zero waveform clear flashes, zero E-ink refresh hooks (`ACTION_REFRESH_SCREEN` eliminated), and instant 0ms dismissal.
+- **Native HEIC & Media Thumbnailing**: Decodes Apple HEIC/HEIF photos and standard media files with on-device bitmap thumbnail generation.
+- **Rich In-App Action Chips**: Each item card in the Sol:OS dashboard provides immediate actions: **Open** in default viewer, **Copy** content to clipboard, **Share** via Android Share Sheet, or **Show in Files**.
 - **Zero-Tap Screenshot Sync**: Automatic background MediaStore observer (`/sdcard/Pictures/Screenshots`) that streams hardware screenshots to your Mac tray the instant they are captured ($< 1500\text{ ms}$).
 - **Direct Share Sheet Target**: Dynamic Android share shortcuts (`ShortcutInfoCompat` + `Person`) placing Daylight Drop at the top of your Android Share Sheet for instant sharing of text, articles, and PDFs.
 - **Quick Settings Shade Tile**: Pull down the Sol:OS quick settings shade and tap the **Drop to Mac** tile to beam the tablet clipboard to your Mac with a single tap.
