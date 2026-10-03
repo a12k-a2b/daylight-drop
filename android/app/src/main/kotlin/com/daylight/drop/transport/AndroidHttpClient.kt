@@ -59,14 +59,15 @@ class AndroidHttpClient(
         origin: String = localDeviceId,
         transferId: String = UUID.randomUUID().toString(),
         targetHost: String = "127.0.0.1",
-        targetPort: Int = ProtocolConstants.MAC_PORT
+        targetPort: Int = ProtocolConstants.MAC_PORT,
+        customFilename: String? = null
     ): DropSuccessResponse {
         if (!file.exists()) {
             throw IOException("File does not exist: ${file.absolutePath}")
         }
 
         val sha256 = LoopSuppressionEngine.computeSha256(file.readBytes())
-        val filename = file.name
+        val filename = customFilename ?: file.name
         val requestBody = file.asRequestBody("application/octet-stream".toMediaType())
 
         val url = "http://$targetHost:$targetPort${ProtocolConstants.DROP_ENDPOINT}"

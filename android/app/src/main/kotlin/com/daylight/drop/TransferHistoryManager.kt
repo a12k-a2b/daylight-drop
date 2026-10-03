@@ -59,6 +59,28 @@ object TransferHistoryManager {
         onHistoryChanged?.invoke()
     }
 
+    fun recordSent(filename: String, fileSize: Long, type: String, previewText: String? = null, file: File? = null) {
+        val f = file ?: File(baseDir ?: File("/sdcard/Download/DaylightDrop"), filename)
+        val record = TransferRecord(
+            filename = filename,
+            file = f,
+            size = fileSize,
+            timestamp = System.currentTimeMillis(),
+            isOutbound = true,
+            transferType = type,
+            previewText = previewText
+        )
+        synchronized(sentItems) {
+            sentItems.removeAll { it.filename == filename && it.isOutbound }
+            sentItems.add(0, record)
+            if (sentItems.size > MAX_HISTORY_ITEMS) {
+                sentItems.removeAt(sentItems.size - 1)
+            }
+        }
+        saveHistoryToDisk()
+        onHistoryChanged?.invoke()
+    }
+
     fun getSentItems(): List<TransferRecord> {
         val results = mutableListOf<TransferRecord>()
         val seenPaths = mutableSetOf<String>()
@@ -66,7 +88,7 @@ object TransferHistoryManager {
         // 1. Items explicitly recorded in memory / history
         synchronized(sentItems) {
             for (item in sentItems) {
-                if (item.file.exists() && seenPaths.add(item.file.absolutePath)) {
+                if ((item.file.exists() || item.previewText != null || item.isOutbound) && seenPaths.add(item.filename)) {
                     results.add(item)
                 }
             }

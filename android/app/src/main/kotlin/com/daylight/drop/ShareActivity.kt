@@ -180,9 +180,13 @@ class ShareActivity : Activity() {
 
         PeerTargetManager.applicationScope.launch(Dispatchers.IO) {
             try {
-                val host = PeerTargetManager.getActiveHost()
-                val port = ProtocolConstants.MAC_PORT
-                PeerTargetManager.httpClient.sendText(payload, targetHost = host, targetPort = port)
+                PeerTargetManager.sendTextToMac(payload)
+                TransferHistoryManager.recordSent(
+                    filename = "shared_text_${System.currentTimeMillis()}.txt",
+                    fileSize = text.toByteArray().size.toLong(),
+                    type = "text",
+                    previewText = text
+                )
                 Log.i(TAG, "Direct shared text beamed successfully to Mac")
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to beam direct shared text to Mac", e)
@@ -205,15 +209,17 @@ class ShareActivity : Activity() {
         PeerTargetManager.applicationScope.launch(Dispatchers.IO) {
             for (item in staged) {
                 try {
-                    val host = PeerTargetManager.getActiveHost()
-                    val port = ProtocolConstants.MAC_PORT
-
-                    PeerTargetManager.httpClient.sendDrop(
+                    val fileSize = item.file.length()
+                    PeerTargetManager.sendDropToMac(
                         file = item.file,
                         type = item.dropType,
                         origin = PeerTargetManager.getLocalDeviceId(),
-                        targetHost = host,
-                        targetPort = port
+                        customFilename = item.displayName
+                    )
+                    TransferHistoryManager.recordSent(
+                        filename = item.displayName,
+                        fileSize = fileSize,
+                        type = item.dropType
                     )
                     Log.i(TAG, "Direct shared file beamed: ${item.displayName} (${item.dropType})")
                 } catch (e: Exception) {

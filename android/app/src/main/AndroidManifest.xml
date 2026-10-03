@@ -63,15 +63,17 @@
         <activity
             android:name=".ShareActivity"
             android:exported="true"
+            android:label="@string/share_sheet_label"
+            android:icon="@drawable/ic_mac_tray"
             android:theme="@style/Theme.Daylight.TranslucentTrampoline"
             android:excludeFromRecents="true"
             android:noHistory="true">
-            <intent-filter>
+            <intent-filter android:label="@string/share_sheet_label" android:icon="@drawable/ic_mac_tray">
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="*/*" />
             </intent-filter>
-            <intent-filter>
+            <intent-filter android:label="@string/share_sheet_label" android:icon="@drawable/ic_mac_tray">
                 <action android:name="android.intent.action.SEND_MULTIPLE" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="*/*" />

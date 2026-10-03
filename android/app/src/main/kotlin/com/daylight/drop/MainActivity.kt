@@ -10,17 +10,26 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.Button
+import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
 import com.daylight.drop.transport.AndroidChannelType
+import com.daylight.drop.transport.LoopSuppressionEngine
 import com.daylight.drop.transport.ProtocolConstants
+import com.daylight.drop.transport.TextPayload
 import com.google.android.material.card.MaterialCardView
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileOutputStream
+import java.util.UUID
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -55,6 +64,21 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvRecentItems: TextView
     private lateinit var btnBeamClipboard: Button
     private lateinit var btnOpenStorage: Button
+
+    // Send to Mac & Scratchpad views
+    private lateinit var btnSendFilesToMac: Button
+    private lateinit var etQuickText: EditText
+    private lateinit var btnPasteClipboard: Button
+    private lateinit var btnClearText: Button
+    private lateinit var btnSendText: Button
+
+    private val pickFilesLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            beamUrisToMac(uris)
+        }
+    }
 
     // Two-sided Stream Tabs
     private lateinit var btnTabReceived: Button
@@ -120,6 +144,12 @@ class MainActivity : AppCompatActivity() {
         btnBeamClipboard = findViewById(R.id.btnBeamClipboard)
         btnOpenStorage = findViewById(R.id.btnOpenStorage)
 
+        btnSendFilesToMac = findViewById(R.id.btnSendFilesToMac)
+        etQuickText = findViewById(R.id.etQuickText)
+        btnPasteClipboard = findViewById(R.id.btnPasteClipboard)
+        btnClearText = findViewById(R.id.btnClearText)
+        btnSendText = findViewById(R.id.btnSendText)
+
         btnTabReceived = findViewById(R.id.btnTabReceived)
         btnTabSent = findViewById(R.id.btnTabSent)
 
@@ -131,6 +161,28 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupListeners() {
+        btnSendFilesToMac.setOnClickListener {
+            Log.i(TAG, "Send Files to Mac clicked")
+            try {
+                pickFilesLauncher.launch(arrayOf("*/*"))
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed launching document picker", e)
+                Toast.makeText(this, "Could not open file picker", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        btnPasteClipboard.setOnClickListener {
+            pasteFromClipboard()
+        }
+
+        btnClearText.setOnClickListener {
+            etQuickText.text?.clear()
+        }
+
+        btnSendText.setOnClickListener {
+            sendQuickTextToMac()
+        }
+
         btnBeamClipboard.setOnClickListener {
             Log.i(TAG, "Beam Clipboard clicked")
             val intent = Intent(this, BeamTrampolineActivity::class.java).apply {
@@ -467,6 +519,132 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "No application found to open ${file.name}", Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    private fun pasteFromClipboard() {
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        val clip = clipboard?.primaryClip
+        if (clip != null && clip.itemCount > 0) {
+            val text = clip.getItemAt(0).text?.toString() ?: ""
+            if (text.isNotEmpty()) {
+                etQuickText.setText(text)
+                etQuickText.setSelection(text.length)
+                Toast.makeText(this, "Pasted from clipboard", Toast.LENGTH_SHORT).show()
+                return
+            }
+        }
+        Toast.makeText(this, getString(R.string.toast_clipboard_empty), Toast.LENGTH_SHORT).show()
+    }
+
+    private fun sendQuickTextToMac() {
+        val text = etQuickText.text?.toString()?.trim() ?: ""
+        if (text.isEmpty()) {
+            Toast.makeText(this, getString(R.string.toast_text_empty), Toast.LENGTH_SHORT).show()
+            return
+        }
+        Toast.makeText(this, "Beaming text to Mac…", Toast.LENGTH_SHORT).show()
+        val sha256 = LoopSuppressionEngine.computeSha256(text)
+        PeerTargetManager.loopSuppression.recordHash(sha256)
+
+        val payload = TextPayload(
+            id = UUID.randomUUID().toString(),
+            type = "prompt",
+            text = text,
+            origin = PeerTargetManager.getLocalDeviceId(),
+            timestamp = System.currentTimeMillis()
+        )
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                PeerTargetManager.sendTextToMac(payload)
+                TransferHistoryManager.recordSent(
+                    filename = "prompt_${System.currentTimeMillis()}.txt",
+                    fileSize = text.toByteArray().size.toLong(),
+                    type = "prompt",
+                    previewText = text
+                )
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, getString(R.string.toast_text_beamed), Toast.LENGTH_SHORT).show()
+                    etQuickText.text?.clear()
+                    if (currentTab == StreamTab.SENT) {
+                        refreshRecentDrops()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed sending text to Mac", e)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "Failed sending text: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private fun beamUrisToMac(uris: List<Uri>) {
+        if (uris.isEmpty()) return
+        Toast.makeText(this, getString(R.string.toast_beaming_files, uris.size), Toast.LENGTH_SHORT).show()
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            val context = applicationContext
+            var sentCount = 0
+
+            for (uri in uris) {
+                try {
+                    val displayName = resolveFilename(context, uri) ?: "file_${System.currentTimeMillis()}"
+                    val tempFile = File(context.cacheDir, "send_to_mac_${UUID.randomUUID()}_$displayName")
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        FileOutputStream(tempFile).use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+
+                    if (tempFile.exists() && tempFile.length() > 0) {
+                        val mimeType = context.contentResolver.getType(uri) ?: "application/octet-stream"
+                        val dropType = when {
+                            mimeType.startsWith("image/") -> "image"
+                            mimeType.contains("pdf") -> "document"
+                            else -> "file"
+                        }
+                        PeerTargetManager.sendDropToMac(
+                            file = tempFile,
+                            type = dropType,
+                            origin = PeerTargetManager.getLocalDeviceId(),
+                            customFilename = displayName
+                        )
+                        TransferHistoryManager.recordSent(
+                            filename = displayName,
+                            fileSize = tempFile.length(),
+                            type = dropType
+                        )
+                        sentCount++
+                        Log.i(TAG, "Beamed file to Mac: $displayName")
+                    }
+                    tempFile.delete()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed beaming file to Mac: $uri", e)
+                }
+            }
+
+            withContext(Dispatchers.Main) {
+                if (sentCount > 0) {
+                    Toast.makeText(this@MainActivity, getString(R.string.toast_beamed_success), Toast.LENGTH_SHORT).show()
+                    if (currentTab == StreamTab.SENT) {
+                        refreshRecentDrops()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun resolveFilename(context: Context, uri: Uri): String? {
+        if (uri.scheme == "content") {
+            context.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val idx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    if (idx != -1) return cursor.getString(idx)
+                }
+            }
+        }
+        return uri.lastPathSegment
     }
 
     private fun getMimeType(file: File): String {

@@ -99,6 +99,140 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- Card: Send to Mac (File Picker & Quick Text Scratchpad) -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardBackgroundColor="@color/os_50"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="0dp"
+            app:strokeColor="@color/os_100"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/quick_send_card_title"
+                    android:textColor="@color/os_900"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.04"
+                    android:layout_marginBottom="12dp" />
+
+                <!-- 1. Big Obvious "Send Files to Mac" Button -->
+                <Button
+                    android:id="@+id/btnSendFilesToMac"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:text="@string/action_send_to_mac"
+                    android:textColor="@color/os_0"
+                    android:textStyle="bold"
+                    android:textSize="15sp"
+                    android:backgroundTint="@color/os_900"
+                    app:icon="@drawable/ic_mac_tray"
+                    app:iconTint="@color/os_0"
+                    app:iconGravity="textStart"
+                    app:iconPadding="10dp"
+                    app:cornerRadius="10dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/action_select_files_sub"
+                    android:textColor="@color/os_400"
+                    android:textSize="11sp"
+                    android:gravity="center"
+                    android:layout_marginTop="4dp"
+                    android:layout_marginBottom="14dp" />
+
+                <!-- Divider -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="@color/os_100"
+                    android:layout_marginBottom="14dp" />
+
+                <!-- 2. Text Input Scratchpad -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="BEAM TEXT OR PROMPT"
+                    android:textColor="@color/os_400"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.05"
+                    android:layout_marginBottom="6dp" />
+
+                <EditText
+                    android:id="@+id/etQuickText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minLines="2"
+                    android:maxLines="5"
+                    android:gravity="top|start"
+                    android:hint="@string/quick_text_hint"
+                    android:textColorHint="@color/os_300"
+                    android:textColor="@color/os_900"
+                    android:textSize="13sp"
+                    android:padding="12dp"
+                    android:background="@drawable/bg_pill_container"
+                    android:layout_marginBottom="8dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btnPasteClipboard"
+                        android:layout_width="wrap_content"
+                        android:layout_height="38dp"
+                        android:text="@string/action_paste"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/os_900"
+                        android:backgroundTint="@color/os_0"
+                        app:strokeColor="@color/os_100"
+                        app:strokeWidth="1dp"
+                        app:cornerRadius="8dp"
+                        android:layout_marginEnd="8dp" />
+
+                    <Button
+                        android:id="@+id/btnClearText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="38dp"
+                        android:text="Clear"
+                        android:textSize="12sp"
+                        android:textColor="@color/os_400"
+                        android:backgroundTint="@color/os_50"
+                        app:strokeColor="@color/os_100"
+                        app:strokeWidth="1dp"
+                        app:cornerRadius="8dp"
+                        android:layout_marginEnd="8dp" />
+
+                    <Button
+                        android:id="@+id/btnSendText"
+                        android:layout_width="0dp"
+                        android:layout_height="38dp"
+                        android:layout_weight="1"
+                        android:text="@string/action_send_text"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/os_0"
+                        android:backgroundTint="@color/os_900"
+                        app:cornerRadius="8dp" />
+                </LinearLayout>
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
         <!-- Quick Actions Row -->
         <LinearLayout
             android:layout_width="match_parent"

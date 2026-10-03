@@ -248,8 +248,10 @@ public final class StagingManager: ObservableObject, @unchecked Sendable {
         DispatchQueue.main.async {
             let pb = NSPasteboard.general
             pb.clearContents()
-            pb.setString(text, forType: .string)
-            pb.setString(origin, forType: NSPasteboard.PasteboardType("com.daylight.drop.origin"))
+            let item = NSPasteboardItem()
+            item.setString(text, forType: .string)
+            item.setString(origin, forType: NSPasteboard.PasteboardType("com.daylight.drop.origin"))
+            pb.writeObjects([item])
         }
         
         let item = StagedItem(

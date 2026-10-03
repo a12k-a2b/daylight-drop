@@ -23,6 +23,18 @@
 
     <string name="action_beam_clipboard">Beam Clipboard</string>
     <string name="action_open_downloads">Open Storage</string>
+    <string name="share_sheet_label">Daylight Beam</string>
+    <string name="action_send_to_mac">Send Files to Mac</string>
+    <string name="action_select_files_sub">Opens files, PDFs, or photos to stream to Mac tray</string>
+    <string name="quick_send_card_title">Send to Mac</string>
+    <string name="quick_text_hint">Type or paste prompt / note to send to Mac…</string>
+    <string name="action_paste">Paste</string>
+    <string name="action_send_text">Send Text to Mac</string>
+    <string name="toast_text_beamed">Text beamed to Mac clipboard</string>
+    <string name="toast_text_empty">Please enter or paste text to send</string>
+    <string name="toast_beaming_files">Beaming %1$d file(s) to Mac…</string>
+    <string name="toast_beamed_success">Beamed to Mac successfully</string>
+    
     <string name="status_connected_usb">Connected via USB (Port 8765/8766)</string>
     <string name="status_connected_wifi">Connected via Wi-Fi</string>
     <string name="status_offline">Ready for drops (Offline)</string>

@@ -2,11 +2,15 @@ package com.daylight.drop
 
 import android.content.Context
 import com.daylight.drop.transport.AndroidHttpClient
+import com.daylight.drop.transport.DropSuccessResponse
 import com.daylight.drop.transport.LoopSuppressionEngine
 import com.daylight.drop.transport.ProtocolConstants
+import com.daylight.drop.transport.TextPayload
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import java.io.File
+import java.io.IOException
 import java.util.UUID
 
 /**
@@ -70,6 +74,65 @@ object PeerTargetManager {
 
     fun setActiveHost(host: String) {
         activeHost = host
+    }
+
+    fun getTargetCandidates(): List<Pair<String, Int>> {
+        val list = mutableListOf<Pair<String, Int>>()
+        val primary = DaylightDropService.instance?.transportManager?.resolveTargetEndpoint()
+        if (primary != null) {
+            list.add(primary)
+        }
+        val usbEndpoint = Pair("127.0.0.1", ProtocolConstants.MAC_PORT)
+        if (!list.contains(usbEndpoint)) {
+            list.add(usbEndpoint)
+        }
+        if (activeHost.isNotEmpty()) {
+            val fallback = Pair(activeHost, ProtocolConstants.MAC_PORT)
+            if (!list.contains(fallback)) {
+                list.add(fallback)
+            }
+        }
+        return list
+    }
+
+    @Throws(IOException::class)
+    fun sendTextToMac(payload: TextPayload): String {
+        val candidates = getTargetCandidates()
+        var lastException: Exception? = null
+        for ((host, port) in candidates) {
+            try {
+                return httpClient.sendText(payload, targetHost = host, targetPort = port)
+            } catch (e: Exception) {
+                lastException = e
+            }
+        }
+        throw (lastException ?: IOException("No reachable route to Mac"))
+    }
+
+    @Throws(IOException::class)
+    fun sendDropToMac(
+        file: File,
+        type: String,
+        origin: String = getLocalDeviceId(),
+        customFilename: String? = null
+    ): DropSuccessResponse {
+        val candidates = getTargetCandidates()
+        var lastException: Exception? = null
+        for ((host, port) in candidates) {
+            try {
+                return httpClient.sendDrop(
+                    file = file,
+                    type = type,
+                    origin = origin,
+                    targetHost = host,
+                    targetPort = port,
+                    customFilename = customFilename
+                )
+            } catch (e: Exception) {
+                lastException = e
+            }
+        }
+        throw (lastException ?: IOException("No reachable route to Mac"))
     }
 
     fun isMacAvailable(): Boolean {

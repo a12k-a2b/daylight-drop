@@ -191,18 +191,26 @@ public final class TransportManager: @unchecked Sendable {
         heartbeatTask = nil
     }
     
+    private var lastAdbRefresh: Date = .distantPast
+    
     public func performHeartbeatProbe() async {
         do {
             let health = try await client.checkHealth(host: "127.0.0.1", port: ProtocolConstants.androidPort, timeout: 1.0)
             updateUsbHealthState(isHealthy: health.status == "ok")
         } catch {
-            let attached = adbTracker.refreshDevices()
-            if !attached.isEmpty {
-                for serial in attached {
-                    adbTracker.setupTunnel(serial: serial)
-                    if (try? await client.checkHealth(host: "127.0.0.1", port: ProtocolConstants.androidPort, timeout: 1.0))?.status == "ok" {
-                        updateUsbHealthState(isHealthy: true)
-                        return
+            let now = Date()
+            if now.timeIntervalSince(lastAdbRefresh) > 10.0 {
+                lastAdbRefresh = now
+                let attached = adbTracker.refreshDevices()
+                if !attached.isEmpty {
+                    for serial in attached {
+                        if !adbTracker.activeTunnelSerials.contains(serial) {
+                            adbTracker.setupTunnel(serial: serial)
+                        }
+                        if (try? await client.checkHealth(host: "127.0.0.1", port: ProtocolConstants.androidPort, timeout: 1.0))?.status == "ok" {
+                            updateUsbHealthState(isHealthy: true)
+                            return
+                        }
                     }
                 }
             }
