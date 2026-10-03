@@ -24,6 +24,7 @@ public final class FloatingTrayPanel: NSPanel {
         self.isMovableByWindowBackground = false
         self.hidesOnDeactivate = false
         self.animationBehavior = .utilityWindow
+        self.appearance = NSAppearance(named: .aqua)
     }
     
     public override var canBecomeKey: Bool {
@@ -121,11 +122,12 @@ public final class FloatingTrayPanel: NSPanel {
             let isV = (event.keyCode == 9) // 9 = 'v'
             
             if isCmd && isV {
-                // If user is currently typing in a text field, let standard text paste happen
-                if let responder = self.firstResponder, responder is NSTextView {
-                    return event
+                // If user is currently typing in a text field, perform paste directly
+                if let textView = self.firstResponder as? NSTextView {
+                    textView.pasteAsPlainText(nil)
+                    return nil
                 }
-                // Otherwise paste clipboard contents directly into the "From Mac" shelf
+                // Otherwise notify tray paste handler
                 self.onPasteCommand?()
                 return nil
             }

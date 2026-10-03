@@ -67,13 +67,18 @@ public struct OutboundShelfView: View {
         } else {
             for url in urls {
                 Task {
+                    var stagedId: UUID? = nil
                     do {
                         let staged = try stagingManager.stageOutboundFile(url: url)
+                        stagedId = staged.id
                         stagingManager.updateOutboundStatus(id: staged.id, status: .beaming)
                         _ = try await TransportManager.shared.sendFile(fileURL: staged.fileURL)
                         stagingManager.updateOutboundStatus(id: staged.id, status: .beamed)
                     } catch {
                         NSLog("[OutboundShelfView] Error sending file: %@", error.localizedDescription)
+                        if let id = stagedId {
+                            stagingManager.updateOutboundStatus(id: id, status: .failed)
+                        }
                     }
                 }
             }
@@ -164,8 +169,26 @@ public struct OutboundCardView: View {
                 // Status badge
                 VStack {
                     HStack {
-                        statusBadge(status: item.status)
+                        if item.status == .failed {
+                            Button(action: { retryBeam() }) {
+                                HStack(spacing: 2) {
+                                    Image(systemName: "arrow.clockwise")
+                                        .font(.system(size: 8))
+                                    Text("Retry")
+                                        .font(.system(size: 8, weight: .bold))
+                                }
+                                .foregroundColor(SolOSTokens.os0)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
+                                .background(SolOSTokens.os800)
+                                .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
                             .padding(4)
+                        } else {
+                            statusBadge(status: item.status)
+                                .padding(4)
+                        }
                         Spacer()
                     }
                     Spacer()
@@ -213,6 +236,24 @@ public struct OutboundCardView: View {
     private func loadThumbnail() {
         ThumbnailProvider.shared.generateThumbnail(for: item.fileURL, targetSize: CGSize(width: 108, height: 68)) { img in
             self.thumbnail = img
+        }
+    }
+    
+    private func retryBeam() {
+        StagingManager.shared.updateOutboundStatus(id: item.id, status: .beaming)
+        Task {
+            do {
+                if item.type == .prompt || item.type == .text {
+                    let text = (try? String(contentsOf: item.fileURL, encoding: .utf8)) ?? item.previewText ?? ""
+                    _ = try await TransportManager.shared.sendText(text: text, type: item.type.rawValue)
+                } else {
+                    _ = try await TransportManager.shared.sendFile(fileURL: item.fileURL, type: item.type.rawValue)
+                }
+                StagingManager.shared.updateOutboundStatus(id: item.id, status: .beamed)
+            } catch {
+                NSLog("[OutboundCardView] Retry failed: %@", error.localizedDescription)
+                StagingManager.shared.updateOutboundStatus(id: item.id, status: .failed)
+            }
         }
     }
     

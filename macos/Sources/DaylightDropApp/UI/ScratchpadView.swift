@@ -54,6 +54,8 @@ public struct ScratchpadView: View {
                 VStack(spacing: 0) {
                     TextEditor(text: $text)
                         .font(.system(size: 12))
+                        .foregroundColor(SolOSTokens.os900)
+                        .tint(SolOSTokens.os900)
                         .scrollContentBackground(.hidden)
                         .background(Color.clear)
                         .padding(.horizontal, 6)
@@ -94,6 +96,7 @@ public struct ScratchpadView: View {
             }
             .padding(.horizontal, 12)
         }
+        .environment(\.colorScheme, .light)
     }
     
     public func dispatchPrompt() {

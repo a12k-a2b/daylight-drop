@@ -56,6 +56,7 @@ public struct FloatingTrayView: View {
                         .stroke(SolOSTokens.os100, lineWidth: 1)
                 )
         )
+        .environment(\.colorScheme, .light)
         .onKeyPress { keyPress in
             // F25: In-Tray Cmd + V Paste
             if keyPress.key == KeyEquivalent("v") && keyPress.modifiers.contains(.command) {
@@ -266,19 +267,10 @@ public struct FloatingTrayView: View {
             return
         }
         
-        // 3. Copied String (including web URLs)
+        // 3. Copied String (including web URLs) -> Populate scratchpad for user review & editing
         if let string = pb.string(forType: .string), !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            let staged = stagingManager.stageOutboundPrompt(prompt: string)
-            stagingManager.updateOutboundStatus(id: staged.id, status: .beaming)
-            
-            Task {
-                do {
-                    _ = try await TransportManager.shared.sendText(text: string, type: "clipboard")
-                    stagingManager.updateOutboundStatus(id: staged.id, status: .beamed)
-                } catch {
-                    NSLog("[FloatingTrayView] Cmd+V text beam error: %@", error.localizedDescription)
-                    stagingManager.updateOutboundStatus(id: staged.id, status: .failed)
-                }
+            DispatchQueue.main.async {
+                self.scratchpadText = string
             }
         }
     }

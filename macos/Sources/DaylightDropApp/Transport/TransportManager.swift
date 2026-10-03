@@ -134,6 +134,8 @@ public final class TransportManager: @unchecked Sendable {
         }
     }
     
+    private var heartbeatTask: Task<Void, Never>?
+    
     public func start() throws {
         lock.lock()
         guard !isRunning else {
@@ -146,9 +148,14 @@ public final class TransportManager: @unchecked Sendable {
         try server.start()
         browser.startBrowsing()
         adbTracker.startTracking()
+        startHeartbeat()
+        Task {
+            await performHeartbeatProbe()
+        }
     }
     
     public func stop() {
+        stopHeartbeat()
         lock.lock()
         isRunning = false
         isUsbTunnelHealthy = false
@@ -161,29 +168,74 @@ public final class TransportManager: @unchecked Sendable {
         onChannelChanged?(nil)
     }
     
+    private func checkIsRunning() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return isRunning
+    }
+    
+    private func startHeartbeat() {
+        stopHeartbeat()
+        heartbeatTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 2_500_000_000)
+                guard let self = self else { break }
+                if !self.checkIsRunning() { break }
+                await self.performHeartbeatProbe()
+            }
+        }
+    }
+    
+    private func stopHeartbeat() {
+        heartbeatTask?.cancel()
+        heartbeatTask = nil
+    }
+    
+    public func performHeartbeatProbe() async {
+        do {
+            let health = try await client.checkHealth(host: "127.0.0.1", port: ProtocolConstants.androidPort, timeout: 1.0)
+            updateUsbHealthState(isHealthy: health.status == "ok")
+        } catch {
+            let attached = adbTracker.connectedSerials
+            if !attached.isEmpty {
+                for serial in attached {
+                    adbTracker.setupTunnel(serial: serial)
+                    if (try? await client.checkHealth(host: "127.0.0.1", port: ProtocolConstants.androidPort, timeout: 1.0))?.status == "ok" {
+                        updateUsbHealthState(isHealthy: true)
+                        return
+                    }
+                }
+            }
+            updateUsbHealthState(isHealthy: false)
+        }
+    }
+    
     private func updateUsbHealthState(isHealthy: Bool) {
         lock.lock()
+        let changed = (self.isUsbTunnelHealthy != isHealthy)
         self.isUsbTunnelHealthy = isHealthy
         let currentChannel: ChannelType? = isHealthy ? .usb : (self.activeWifiPeer != nil ? .wifi : nil)
         lock.unlock()
-        self.onChannelChanged?(currentChannel)
+        if changed {
+            self.onChannelChanged?(currentChannel)
+        }
     }
     
     public func probeUsbTunnelHealth(serial: String) {
         Task {
-            do {
-                let health = try await client.checkHealth(host: "127.0.0.1", port: ProtocolConstants.androidPort, timeout: 1.5)
-                self.updateUsbHealthState(isHealthy: health.status == "ok")
-            } catch {
-                self.updateUsbHealthState(isHealthy: false)
-            }
+            await performHeartbeatProbe()
         }
     }
     
     // MARK: - Outbound Transmission
     
     public func sendFile(fileURL: URL, type: String = "document") async throws -> DropSuccessResponse {
-        guard let endpoint = resolveTargetEndpoint() else {
+        var targetEndpoint = resolveTargetEndpoint()
+        if targetEndpoint == nil {
+            await performHeartbeatProbe()
+            targetEndpoint = resolveTargetEndpoint()
+        }
+        guard let endpoint = targetEndpoint else {
             throw HTTPClientError.noPeerAvailable
         }
         return try await client.sendDrop(
@@ -196,7 +248,12 @@ public final class TransportManager: @unchecked Sendable {
     }
     
     public func sendText(text: String, type: String = "prompt") async throws -> String {
-        guard let endpoint = resolveTargetEndpoint() else {
+        var targetEndpoint = resolveTargetEndpoint()
+        if targetEndpoint == nil {
+            await performHeartbeatProbe()
+            targetEndpoint = resolveTargetEndpoint()
+        }
+        guard let endpoint = targetEndpoint else {
             throw HTTPClientError.noPeerAvailable
         }
         

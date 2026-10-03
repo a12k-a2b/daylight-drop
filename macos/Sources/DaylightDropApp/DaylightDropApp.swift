@@ -87,13 +87,18 @@ public final class StatusItemController: NSObject {
             guard let self = self else { return }
             for url in urls {
                 Task {
+                    var stagedId: UUID? = nil
                     do {
                         let staged = try self.stagingManager.stageOutboundFile(url: url)
+                        stagedId = staged.id
                         self.stagingManager.updateOutboundStatus(id: staged.id, status: .beaming)
                         _ = try await self.transportManager.sendFile(fileURL: staged.fileURL)
                         self.stagingManager.updateOutboundStatus(id: staged.id, status: .beamed)
                     } catch {
                         NSLog("[StatusItemController] Drop beam error: %@", error.localizedDescription)
+                        if let id = stagedId {
+                            self.stagingManager.updateOutboundStatus(id: id, status: .failed)
+                        }
                     }
                 }
             }
@@ -120,13 +125,18 @@ public final class StatusItemController: NSObject {
         if !candidateURLs.isEmpty {
             for url in candidateURLs {
                 Task {
+                    var stagedId: UUID? = nil
                     do {
                         let staged = try self.stagingManager.stageOutboundFile(url: url)
+                        stagedId = staged.id
                         self.stagingManager.updateOutboundStatus(id: staged.id, status: .beaming)
                         _ = try await self.transportManager.sendFile(fileURL: staged.fileURL)
                         self.stagingManager.updateOutboundStatus(id: staged.id, status: .beamed)
                     } catch {
                         NSLog("[StatusItemController] Paste file beam error: %@", error.localizedDescription)
+                        if let id = stagedId {
+                            self.stagingManager.updateOutboundStatus(id: id, status: .failed)
+                        }
                     }
                 }
             }
@@ -150,13 +160,18 @@ public final class StatusItemController: NSObject {
                     do {
                         try pngData.write(to: fileURL)
                         Task {
+                            var stagedId: UUID? = nil
                             do {
                                 let staged = try self.stagingManager.stageOutboundFile(url: fileURL)
+                                stagedId = staged.id
                                 self.stagingManager.updateOutboundStatus(id: staged.id, status: .beaming)
                                 _ = try await self.transportManager.sendFile(fileURL: staged.fileURL, type: "image")
                                 self.stagingManager.updateOutboundStatus(id: staged.id, status: .beamed)
                             } catch {
                                 NSLog("[StatusItemController] Paste image beam error: %@", error.localizedDescription)
+                                if let id = stagedId {
+                                    self.stagingManager.updateOutboundStatus(id: id, status: .failed)
+                                }
                             }
                         }
                         return
@@ -210,6 +225,9 @@ public final class DaylightDropAppDelegate: NSObject, NSApplicationDelegate {
     public func applicationDidFinishLaunching(_ notification: Notification) {
         // F9: Standalone accessory application (no Dock icon, LSUIElement = true)
         NSApp.setActivationPolicy(.accessory)
+        
+        // Setup standard Edit menu so Cmd+C/Cmd+V/Cmd+A work in accessory app
+        setupStandardEditMenu()
         
         // 1. Initialize StatusItemController & FloatingTrayPanel
         self.statusItemController = StatusItemController(
@@ -272,5 +290,30 @@ public final class DaylightDropAppDelegate: NSObject, NSApplicationDelegate {
     public func applicationWillTerminate(_ notification: Notification) {
         transportManager.stop()
         hotKeyManager.unregisterAll()
+    }
+    
+    private func setupStandardEditMenu() {
+        let mainMenu = NSMenu()
+        
+        let appMenuItem = NSMenuItem()
+        mainMenu.addItem(appMenuItem)
+        
+        let editMenuItem = NSMenuItem()
+        let editMenu = NSMenu(title: "Edit")
+        
+        editMenu.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        let redo = editMenu.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+        redo.keyEquivalentModifierMask = [.command, .shift]
+        editMenu.addItem(NSMenuItem.separator())
+        editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(withTitle: "Paste and Match Style", action: Selector(("pasteAsPlainText:")), keyEquivalent: "V")
+        editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        
+        editMenuItem.submenu = editMenu
+        mainMenu.addItem(editMenuItem)
+        
+        NSApp.mainMenu = mainMenu
     }
 }
